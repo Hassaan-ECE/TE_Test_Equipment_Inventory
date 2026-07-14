@@ -4,7 +4,7 @@
 
 **Last checked:** 2026-07-14
 
-**Authority:** [DECISIONS.md](DECISIONS.md), especially D-004, D-007, D-008, and D-025
+**Authority:** [DECISIONS.md](DECISIONS.md), especially D-004, D-007, D-008, D-025, and D-026
 
 ## Evidence boundary
 
@@ -100,7 +100,9 @@ The reconciliation equation holds:
 573 = 515 + 0 + 50 + 8 + 0
 ```
 
-The 50 identity-conflicted rows and eight invalid-date rows must be corrected in the source and dry-run again before any live commit. The all-or-nothing commit gate remains unchanged: conflicts or rejections block the batch; matched and intentionally ignored rows are durable no-ops.
+The 50 identity-conflicted rows and eight invalid-date rows must be corrected in the source and dry-run again before any live commit. Under D-026, the v0.1 desktop path is full-batch-only: conflicts or rejections block the batch, and the desktop command rejects partial commit requests. Matched and intentionally ignored rows are durable no-ops.
+
+Do not partial-load the 515 currently insertable rows into real Local AppData. Batch identity is derived from workbook content, selected sheet, and mapping version, so correcting the workbook creates a different batch identity. Rows that uniquely match on asset or serial may reconcile as no-ops, but the 41 rows with neither identity are especially vulnerable to being inserted again.
 
 ## Importer and synthetic verification boundary
 
@@ -108,8 +110,8 @@ The v0.1 importer accepts local `.csv`, `.xlsx`, and `.xls` paths. CSV and gener
 
 Synthetic fixtures cover case-insensitive `Inventory` sheet preference, ambiguity without an `Inventory` sheet, the exact 22 live headers, spaced and snake-case calibration aliases, due/vendor preservation, calibrated-without-due behavior, valid timeless verification diagnostics, invalid verification inputs, unknown nonblank columns, duplicate identities, all five row classifications, commit provenance, idempotency, and durable matched/no-op behavior. Synthetic fixtures contain no live lab inventory data.
 
-Batch identity is derived from source content, selected sheet, and mapping version. Commit requires explicit confirmation, re-parses the source, revalidates source and reconciliation state, and writes inserts through normal FeOxDB mutation/outbox paths.
+Batch identity is derived from source content, selected sheet, and mapping version. Commit requires explicit confirmation, re-parses the source, revalidates source and reconciliation state, and writes inserts through normal FeOxDB mutation/outbox paths. The importer engine retains an opt-in partial path for synthetic/internal tests, but the v0.1 desktop command rejects it and the Local AppData live-load helper requires a non-blocking preview plus a full commit.
 
 ## Release and operations boundary
 
-Aggregate profile completion is not cutover completion. Do not commit the workbook, enable production shared sync, publish, install on lab PCs, delete lab data, or retire the Python workflow. Before cutover, protect the corrected source, repeat the dry run, rehearse import and restore, prove backup retention and rollback, and retain the documented Python read-only window. Sync artifacts are not a backup.
+Aggregate profile completion is not cutover completion. Do not commit the workbook, partial-load real Local AppData, enable production shared sync, publish, install on lab PCs, delete lab data, or retire the Python workflow. Before cutover, protect the corrected source, obtain a non-blocking dry run, rehearse the full-batch import and restore, prove backup retention and rollback, and retain the documented Python read-only window. Sync artifacts are not a backup.

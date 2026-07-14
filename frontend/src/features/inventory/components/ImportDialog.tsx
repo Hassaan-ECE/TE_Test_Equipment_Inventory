@@ -54,16 +54,12 @@ export function ImportDialog({ onClose, onEntriesChanged }: ImportDialogProps) {
     }
   }
 
-  async function commit(allowPartial: boolean): Promise<void> {
+  async function commit(): Promise<void> {
     if (!bridge?.isDesktop || !report || !confirmed) {
       return;
     }
     const hasBlockingRows = report.blocking || report.conflicted > 0 || report.rejected > 0;
-    if (hasBlockingRows && !allowPartial) {
-      return;
-    }
-    if (allowPartial && report.inserted <= 0) {
-      setError("No clean insertable rows to import.");
+    if (hasBlockingRows) {
       return;
     }
 
@@ -74,7 +70,6 @@ export function ImportDialog({ onClose, onEntriesChanged }: ImportDialogProps) {
       const committed = await bridge.commitImport({
         batchId: report.batchId,
         confirmed: true,
-        allowPartial,
       });
       if (committed.entriesChanged) await onEntriesChanged();
       setResult(committed);
@@ -87,7 +82,6 @@ export function ImportDialog({ onClose, onEntriesChanged }: ImportDialogProps) {
 
   const hasBlockingRows = Boolean(report && (report.blocking || report.conflicted > 0 || report.rejected > 0));
   const fullCommitDisabled = !report || !confirmed || hasBlockingRows || busy;
-  const partialCommitDisabled = !report || !confirmed || busy || report.inserted <= 0;
 
   return (
     <div
@@ -151,27 +145,21 @@ export function ImportDialog({ onClose, onEntriesChanged }: ImportDialogProps) {
                 type="checkbox"
                 onChange={(event) => setConfirmed(event.currentTarget.checked)}
               />
-              I confirm this import preview and want to write clean rows to the local database.
+              I confirm this import preview and want to write the full batch to the local database.
             </label>
             {hasBlockingRows ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                {report.conflicted} conflicted and {report.rejected} rejected rows block a full commit. You can still
-                import the {report.inserted} clean insertable rows now; problem rows are skipped.
+                {report.conflicted} conflicted and {report.rejected} rejected rows block commit. Correct the source and
+                run the dry run again; no rows can be committed from this batch.
               </p>
             ) : null}
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button disabled={busy} variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
-              {hasBlockingRows ? (
-                <Button disabled={partialCommitDisabled} onClick={() => void commit(true)}>
-                  {committing ? "Importing..." : `Import ${report.inserted} clean rows`}
-                </Button>
-              ) : (
-                <Button disabled={fullCommitDisabled} onClick={() => void commit(false)}>
-                  {committing ? "Committing..." : "Commit import"}
-                </Button>
-              )}
+              <Button disabled={fullCommitDisabled} onClick={() => void commit()}>
+                {committing ? "Committing..." : "Commit import"}
+              </Button>
             </div>
           </footer>
         ) : null}
@@ -306,7 +294,7 @@ function CommitResult({ result }: { result: ImportCommitResult }) {
     <section className="mt-5 rounded-xl border border-success/30 bg-success/10 p-4">
       <p className="text-sm font-medium text-success-foreground">{result.message}</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Inserted {result.inserted}. Conflicted {result.conflicted}, rejected {result.rejected} (skipped if partial).
+        Inserted {result.inserted}. Conflicted {result.conflicted}, rejected {result.rejected}.
       </p>
     </section>
   );

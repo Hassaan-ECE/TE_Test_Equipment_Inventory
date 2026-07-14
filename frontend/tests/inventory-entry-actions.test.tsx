@@ -74,7 +74,7 @@ describe("InventoryShell entry actions", () => {
     fireEvent.contextMenu(screen.getByText("Industrial multimeter"));
     expect(screen.queryByText("Entry Actions")).not.toBeInTheDocument();
     expect(screen.getAllByText("Industrial multimeter")).toHaveLength(1);
-    await user.click(await screen.findByRole("button", { name: "Archive Entry" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Archive Entry" }));
 
     expect(screen.queryByText("Industrial multimeter")).not.toBeInTheDocument();
     expect(screen.getByText("Entry moved to the archive.")).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("InventoryShell entry actions", () => {
 
     await user.click(screen.getAllByRole("button", { name: /Archive/i })[0]);
     fireEvent.contextMenu(screen.getByText("Cabinet table saw"));
-    await user.click(await screen.findByRole("button", { name: "Restore Entry" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Restore Entry" }));
 
     expect(screen.queryByText("Cabinet table saw")).not.toBeInTheDocument();
     expect(screen.getByText("Entry restored to inventory.")).toBeInTheDocument();
@@ -106,7 +106,7 @@ describe("InventoryShell entry actions", () => {
     render(<InventoryShell />);
 
     fireEvent.contextMenu(screen.getByText("Industrial multimeter"));
-    await user.click(await screen.findByRole("button", { name: "Delete Entry" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
 
     expect(screen.getByText("Delete this entry?")).toBeInTheDocument();
     expect(screen.getAllByText("Industrial multimeter").length).toBeGreaterThan(0);
@@ -125,7 +125,7 @@ describe("InventoryShell entry actions", () => {
     render(<InventoryShell />);
 
     fireEvent.contextMenu(screen.getByText("Industrial multimeter"));
-    await user.click(await screen.findByRole("button", { name: "Delete Entry" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
     await user.click(screen.getByRole("button", { name: "Delete Entry" }));
 
     expect(screen.queryByText("Industrial multimeter")).not.toBeInTheDocument();
@@ -138,8 +138,8 @@ describe("InventoryShell entry actions", () => {
 
     fireEvent.contextMenu(screen.getByText("Long handle ratchet"));
 
-    expect(screen.queryByRole("button", { name: "Open Saved Link" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search Online" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Open Saved Link" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Search Online" })).toBeInTheDocument();
   });
 
   it("shows the saved-link action when a row has a link", () => {
@@ -147,7 +147,7 @@ describe("InventoryShell entry actions", () => {
 
     fireEvent.contextMenu(screen.getByText("Industrial multimeter"));
 
-    expect(screen.getByRole("button", { name: "Open Saved Link" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Open Saved Link" })).toBeInTheDocument();
   });
 
   it("does not open unsafe saved-link schemes", async () => {
@@ -210,7 +210,7 @@ describe("InventoryShell entry actions", () => {
     render(<InventoryShell />);
 
     fireEvent.contextMenu(await screen.findByText("Unsafe saved link entry"));
-    await user.click(await screen.findByRole("button", { name: "Open Saved Link" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Open Saved Link" }));
 
     expect(openExternal).not.toHaveBeenCalled();
     expect(screen.getByText("This link is not in a valid format.")).toBeInTheDocument();

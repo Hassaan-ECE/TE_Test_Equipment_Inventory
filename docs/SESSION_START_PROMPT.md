@@ -26,7 +26,7 @@ Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree. It i
 - Tauri id: `com.te.test.equipment.inventory` — do not change after installs without a migration plan
 - local DB: `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox`
 
-**Implemented:** identity/updater hygiene; Local AppData compatibility copy; current-state calibration and derived health; timestamped verification; calibration-aware FeOxDB/sync/export; dry-run and confirmed idempotent CSV/Excel importer with provenance; live aggregate import profiling; calibration UI, filters, chips, and importer dialog. Former O-001 through O-008 are resolved by D-017 through D-025.
+**Implemented:** identity/updater hygiene; Local AppData compatibility copy; current-state calibration and derived health; timestamped verification; calibration-aware FeOxDB/sync/export; dry-run and confirmed idempotent CSV/Excel importer with provenance; live aggregate import profiling; calibration UI, filters, and chips. Former O-001 through O-008 are resolved by D-017 through D-025. D-026 makes v0.1 import offline/operator-driven and full-batch-only: the shell has no Import action, the desktop command rejects partial commits, and partial behavior remains internal-test-only.
 
 **Operations boundary:** shared synchronization is disabled by default behind `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED`; optional configuration uses `TE_TEST_EQUIPMENT_SHARED_ROOT` and `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY`. Sync is not a backup. Do not enable production shared mode, push, deploy, publish, install on lab PCs, delete lab data, or expand scope without owner authorization.
 
@@ -34,7 +34,7 @@ Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree. It i
 
 1. independent post-change review;
 2. Boss lint/test/build/Tauri/smoke verification and exact blocker reporting;
-3. live import correction — aggregate profile is available, but 50 identity conflicts and eight invalid-date rows block commit;
+3. live import correction — aggregate profile is available, but 50 identity conflicts and eight invalid-date rows block the required full-batch commit; never partial-load real Local AppData;
 4. protected import/restore rehearsal and rollback plan;
 5. department shared-root/ACL/backup ownership and real two-machine proof;
 6. explicit cutover authorization.

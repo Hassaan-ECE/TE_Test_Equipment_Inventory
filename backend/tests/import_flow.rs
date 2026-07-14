@@ -1382,7 +1382,10 @@ fn partial_commit_imports_clean_rows_and_skips_blocking() {
         &db,
     )
     .unwrap_err();
-    assert!(full_err.to_ascii_lowercase().contains("blocking"));
+    let full_error = full_err.to_ascii_lowercase();
+    assert!(full_error.contains("blocking"));
+    assert!(full_error.contains("correct"));
+    assert!(!full_error.contains("partial"));
 
     let result = commit_import_from_store(
         ImportCommitInput {
@@ -1399,10 +1402,10 @@ fn partial_commit_imports_clean_rows_and_skips_blocking() {
     assert_eq!(db.load_entries().unwrap().len(), report.inserted);
 }
 
-/// One-shot: set TE_LOAD_LIVE_LOCAL=1 to write clean rows from the live export into the
-/// real LocalAppData FeOxDB. Close the desktop app first if the DB file is locked.
+/// One-shot: set TE_LOAD_LIVE_LOCAL=1 to write a fully clean live export into the real
+/// LocalAppData FeOxDB. Close the desktop app first if the DB file is locked.
 #[test]
-fn load_live_partial_into_user_local_appdata_when_requested() {
+fn load_live_full_batch_into_user_local_appdata_when_requested() {
     if std::env::var("TE_LOAD_LIVE_LOCAL").ok().as_deref() != Some("1") {
         return;
     }
@@ -1417,10 +1420,8 @@ fn load_live_partial_into_user_local_appdata_when_requested() {
         workbook.display()
     );
 
-    let local_app =
-        PathBuf::from(std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA")).join(
-            "com.te.test.equipment.inventory",
-        );
+    let local_app = PathBuf::from(std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA"))
+        .join("com.te.test.equipment.inventory");
     fs::create_dir_all(&local_app).unwrap();
     let db_path = local_app.join("inventory.feox");
     let db = InventoryDb::open_at_with_size(db_path.clone(), 64 * 1024 * 1024)
@@ -1445,12 +1446,16 @@ fn load_live_partial_into_user_local_appdata_when_requested() {
         before
     );
     assert!(report.inserted > 0, "expected clean insertable rows");
+    assert!(
+        !report.blocking,
+        "live cutover is full-batch-only; correct every conflict/rejection before commit"
+    );
 
     let result = commit_import_from_store(
         ImportCommitInput {
             batch_id: report.batch_id.clone(),
             confirmed: true,
-            allow_partial: true,
+            allow_partial: false,
         },
         &db,
     )

@@ -1,6 +1,7 @@
 import { ChevronDownIcon, SlidersHorizontalIcon } from "lucide-react";
 
-import { DropdownPanel, useDropdownMenu } from "@/shared/components/ui/DropdownMenu";
+import { DropdownPanel } from "@/shared/components/ui/DropdownMenu";
+import { useDropdownMenu } from "@/shared/hooks/useDropdownMenu";
 import { Button } from "@/shared/components/ui/button";
 import { getVisibleDataColumnCount } from "@/features/inventory/lib";
 import type { ColumnConfig, ColumnKey } from "@/features/inventory/types";

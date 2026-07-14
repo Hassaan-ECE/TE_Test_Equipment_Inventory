@@ -123,7 +123,8 @@ export function ScrollRegion({
   };
 
   return (
-    <div className={cn("relative min-h-0 flex-1 overflow-hidden", className)}>
+    // flex-col + min-h-0 so max-height parents (dropdowns) actually constrain the viewport
+    <div className={cn("relative flex min-h-0 flex-1 flex-col overflow-hidden", className)}>
       {scrollCue.top ? (
         <div
           className={cn(
@@ -139,7 +140,8 @@ export function ScrollRegion({
         ref={setScrollNode}
         aria-label={ariaLabel}
         className={cn(
-          "scroll-region-viewport h-full overflow-y-auto",
+          // Prefer flex-1/min-h-0 over h-full: h-full fails when parent only has max-height.
+          "scroll-region-viewport min-h-0 flex-1 overflow-y-auto overflow-x-hidden",
           scrollClassName,
         )}
         onScroll={handleScroll}

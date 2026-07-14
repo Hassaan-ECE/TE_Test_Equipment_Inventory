@@ -38,13 +38,13 @@ V0.1 keeps current state only. A full `CalibrationEvent` history store and manag
 
 The existing inventory shell supports active and archive views, add/edit/verify/archive/restore/delete flows, search, sorting, column visibility, and calibration-specific display and editing. It shows requirement, due date, out-to-calibration state, derived health badges, and timestamped verification. Filters cover requirement, derived health, and due windows; active counts show overdue, due soon, missing due, and out to cal.
 
-### Importer
+### Cutover importer
 
-The desktop importer accepts `.csv`, `.xlsx`, and `.xls` paths through a native picker. A dry run accounts for every source row as `inserted`, `matched`, `conflicted`, `rejected`, or `ignored`, and reports the treatment of source columns and raw values.
+V0.1 intentionally exposes no Import action in the inventory shell. Import is an offline/operator-driven cutover workflow; the retained importer and native picker support `.csv`, `.xlsx`, and `.xls` paths for that controlled process. A dry run accounts for every source row as `inserted`, `matched`, `conflicted`, `rejected`, or `ignored`, and reports the treatment of source columns and raw values.
 
-Batch identity is content/sheet/mapping based and import provenance retains batch, source filename, sheet, row, and original identifiers. Matching is limited to unique normalized asset or serial identity; manufacturer plus model never auto-merges. Commit requires explicit confirmation, revalidates the source and reconciliation basis, and blocks while conflicts or rejections remain. Repeating a completed batch is idempotent; matched and intentionally ignored rows are durable no-ops.
+Batch identity is content/sheet/mapping based and import provenance retains batch, source filename, sheet, row, and original identifiers. Matching is limited to unique normalized asset or serial identity; manufacturer plus model never auto-merges. Commit requires explicit confirmation, revalidates the source and reconciliation basis, and blocks while conflicts or rejections remain. The production desktop path is full-batch-only and rejects partial commit requests. The importer engine retains partial behavior only for synthetic/internal tests; it is not a supported Local AppData cutover path. Repeating a completed batch is idempotent; matched and intentionally ignored rows are durable no-ops.
 
-A local, gitignored live export has been aggregate-profiled. The importer selects its `Inventory` sheet and reports `573 total / 515 inserted / 0 matched / 50 conflicted / 8 rejected / 0 ignored`, with commit blocked until the identity conflicts and invalid dates are corrected. No live row contents or identifier values are tracked; see [docs/planning/IMPORT_PROFILE.md](docs/planning/IMPORT_PROFILE.md).
+A local, gitignored live export has been aggregate-profiled. The importer selects its `Inventory` sheet and reports `573 total / 515 inserted / 0 matched / 50 conflicted / 8 rejected / 0 ignored`, with commit blocked until the identity conflicts and invalid dates are corrected. Do not partial-load this workbook: source corrections change content-derived batch identity, and the 41 rows with neither asset nor serial identity are especially vulnerable to duplicate insertion. No live row contents or identifier values are tracked; see [docs/planning/IMPORT_PROFILE.md](docs/planning/IMPORT_PROFILE.md).
 
 ### Storage, export, and sync
 
@@ -122,6 +122,7 @@ bun run build:desktop
 - independent post-change review and Boss acceptance verification
 - final frontend build and desktop/Tauri smoke on the target Windows environment
 - correction of 50 identity-conflicted and eight invalid-date live rows, followed by a protected repeat dry run
+- a non-blocking full-batch import preview; no partial load into real Local AppData
 - backup retention and restore drill
 - final shared root, ACL/owner decisions, and real two-machine sync proof
 - migration rehearsal, operator sign-off, protected cutover inputs, and Python read-only rollback window

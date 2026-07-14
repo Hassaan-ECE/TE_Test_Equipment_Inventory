@@ -1,68 +1,11 @@
 import { ChevronDownIcon } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ButtonHTMLAttributes,
-  type ReactNode,
-} from "react";
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
+import { useDropdownMenu } from "@/shared/hooks/useDropdownMenu";
 import { cn } from "@/shared/lib/utils";
 
 export type DropdownAlign = "left" | "right";
-
-interface UseDropdownMenuOptions {
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-export function useDropdownMenu({ open: controlledOpen, onOpenChange }: UseDropdownMenuOptions = {}) {
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const open = controlledOpen ?? uncontrolledOpen;
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  function setOpen(next: boolean): void {
-    if (controlledOpen === undefined) {
-      setUncontrolledOpen(next);
-    }
-    onOpenChange?.(next);
-  }
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    function handlePointerDown(event: MouseEvent): void {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  return {
-    open,
-    setOpen,
-    menuRef,
-    toggle: () => setOpen(!open),
-    close: () => setOpen(false),
-  };
-}
 
 interface DropdownPanelProps {
   align?: DropdownAlign;
@@ -86,19 +29,21 @@ export function DropdownPanel({
   return (
     <div
       className={cn(
-        // Above sticky table headers (z-30) so menus are not covered by the grid.
-        "absolute z-50 mt-2 min-w-[11rem] overflow-hidden rounded-2xl border border-border/70 bg-card p-2 text-card-foreground shadow-lg",
+        // Above sticky table headers so menus are not covered by the grid.
+        // flex-col + max-height so ScrollRegion can constrain and cue-scroll.
+        "absolute z-50 mt-2 flex min-w-[11rem] flex-col overflow-hidden rounded-2xl border border-border/70 bg-card p-2 text-card-foreground shadow-lg",
+        maxHeightClassName,
         align === "right" ? "right-0" : "left-0",
         className,
       )}
       role={role}
     >
       {title ? (
-        <div className="px-2 py-1">
+        <div className="shrink-0 px-2 py-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</p>
         </div>
       ) : null}
-      <ScrollRegion className={cn("mt-1", maxHeightClassName)} contentClassName="space-y-1">
+      <ScrollRegion className="mt-1 min-h-0 flex-1" contentClassName="space-y-1">
         {children}
       </ScrollRegion>
     </div>

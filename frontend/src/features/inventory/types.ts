@@ -179,8 +179,6 @@ export interface ImportDryRunReport {
 export interface ImportCommitInput {
   batchId: string;
   confirmed: boolean;
-  /** Import insertable rows even when conflicted/rejected rows remain. */
-  allowPartial?: boolean;
 }
 
 export interface ImportCommitResult {

@@ -1,6 +1,7 @@
 import { SettingsIcon } from "lucide-react";
 
-import { DropdownItem, DropdownPanel, useDropdownMenu } from "@/shared/components/ui/DropdownMenu";
+import { DropdownItem, DropdownPanel } from "@/shared/components/ui/DropdownMenu";
+import { useDropdownMenu } from "@/shared/hooks/useDropdownMenu";
 import { Button } from "@/shared/components/ui/button";
 import { Toggle } from "@/shared/components/ui/toggle";
 import { getVisibleDataColumnCount } from "@/features/inventory/lib";
@@ -48,7 +49,7 @@ export function ViewSettingsMenu({
         <DropdownPanel
           align="right"
           className="w-72"
-          maxHeightClassName="max-h-[min(28rem,calc(100vh-8rem))]"
+          maxHeightClassName="max-h-[min(24rem,calc(100vh-10rem))]"
           title="View settings"
         >
           <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-accent/40">

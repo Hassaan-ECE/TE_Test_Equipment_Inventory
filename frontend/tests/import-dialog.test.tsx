@@ -38,20 +38,9 @@ describe("ImportDialog", () => {
     expect(screen.getByText("legacy-3")).toBeInTheDocument();
   });
 
-  it("offers partial import for blocking previews and full commit when clean", async () => {
+  it("keeps blocking previews non-committable", async () => {
     const user = userEvent.setup();
-    const commitImport = vi.fn().mockResolvedValue({
-      batchId: "sha256:batch-1",
-      inserted: 1,
-      matched: 1,
-      conflicted: 1,
-      rejected: 1,
-      ignored: 1,
-      remaining: 2,
-      noop: 1,
-      entriesChanged: true,
-      message: "Partial import: 1 new entries written. Skipped 2 conflicted/rejected rows (not imported).",
-    });
+    const commitImport = vi.fn();
     window.inventoryDesktop = createDesktopBridge({
       pickImportFile: vi.fn().mockResolvedValue("C:/imports/equipment.csv"),
       previewImport: vi.fn().mockResolvedValue(allClassificationsReport()),
@@ -59,18 +48,13 @@ describe("ImportDialog", () => {
     });
     render(<ImportDialog onClose={vi.fn()} onEntriesChanged={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Choose import file" }));
-    expect(screen.queryByRole("button", { name: "Commit import" })).not.toBeInTheDocument();
-    const partial = screen.getByRole("button", { name: /Import 1 clean rows/i });
-    expect(partial).toBeDisabled();
+    const commit = screen.getByRole("button", { name: "Commit import" });
+    expect(commit).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /I confirm this import/i }));
-    expect(partial).toBeEnabled();
-    expect(screen.getByText(/conflicted and .* rejected rows block a full commit/i)).toBeInTheDocument();
-    await user.click(partial);
-    expect(commitImport).toHaveBeenCalledWith({
-      batchId: "sha256:batch-1",
-      confirmed: true,
-      allowPartial: true,
-    });
+    expect(commit).toBeDisabled();
+    expect(screen.getByText(/conflicted and .* rejected rows block commit/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Import 1 clean rows/i })).not.toBeInTheDocument();
+    expect(commitImport).not.toHaveBeenCalled();
   });
 
   it("reports matched-only numeric no-op without claiming inserts", async () => {

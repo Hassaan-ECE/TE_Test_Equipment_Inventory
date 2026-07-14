@@ -98,7 +98,7 @@ export const InventoryTable = memo(function InventoryTable({
     <section className="flex h-full min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-sm">
       <ScrollRegion
         aria-label="Inventory table"
-        className="min-h-0 flex-1"
+        className="min-h-0 h-full flex-1"
         scrollClassName="overflow-x-hidden"
         scrollRef={scrollRef}
         topCueClassName="z-10"

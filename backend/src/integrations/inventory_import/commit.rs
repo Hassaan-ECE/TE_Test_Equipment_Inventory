@@ -91,7 +91,7 @@ fn commit_import(
     }
     if reconciled.report.blocking && !input.allow_partial {
         return Err(
-            "Import dry run is blocking because conflicted or rejected rows remain. Use partial commit to import only clean rows.".to_string(),
+            "Import dry run is blocking because conflicted or rejected rows remain. Correct the source and run the dry run again before committing.".to_string(),
         );
     }
 

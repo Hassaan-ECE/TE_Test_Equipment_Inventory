@@ -189,6 +189,7 @@ pub(crate) fn commit_import(
     coordinator: State<'_, SharedSyncCoordinator>,
     db: State<'_, InventoryDb>,
 ) -> CommandResult<ImportCommitResult> {
+    validate_v0_1_import_policy(&input)?;
     let coordinator = coordinator.inner().clone();
     let result = coordinator.run_exclusive("inventory import commit", || {
         inventory_import::commit_import_from_store(input, &db)
@@ -197,6 +198,16 @@ pub(crate) fn commit_import(
         schedule_shared_publish(app, db.inner().clone(), coordinator);
     }
     Ok(result)
+}
+
+fn validate_v0_1_import_policy(input: &ImportCommitInput) -> CommandResult<()> {
+    if input.allow_partial {
+        return Err(
+            "v0.1 desktop import is full-batch-only; partial commit is reserved for internal tests."
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -320,6 +331,24 @@ mod tests {
             "Background shared publish failed: permission denied"
         );
         assert_eq!(queried.shared.has_local_only_changes, Some(true));
+    }
+
+    #[test]
+    fn desktop_import_policy_rejects_partial_commit_requests() {
+        let partial = ImportCommitInput {
+            batch_id: "batch-partial".to_string(),
+            confirmed: true,
+            allow_partial: true,
+        };
+        let error = validate_v0_1_import_policy(&partial).unwrap_err();
+        assert!(error.contains("full-batch-only"));
+
+        let full = ImportCommitInput {
+            batch_id: "batch-full".to_string(),
+            confirmed: true,
+            allow_partial: false,
+        };
+        assert_eq!(validate_v0_1_import_policy(&full), Ok(()));
     }
 
     fn test_input(description: &str) -> InventoryEntryInput {

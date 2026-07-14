@@ -83,8 +83,7 @@ pub(crate) struct ImportDryRunReport {
 pub(crate) struct ImportCommitInput {
     pub batch_id: String,
     pub confirmed: bool,
-    /// When true, insert/match/ignore clean rows even if conflicted/rejected rows remain.
-    /// Conflicted and rejected rows are skipped (not written) and reported in the result.
+    /// Internal test capability. The v0.1 desktop command rejects partial requests.
     #[serde(default)]
     pub allow_partial: bool,
 }
