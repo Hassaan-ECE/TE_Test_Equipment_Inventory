@@ -1,6 +1,6 @@
 use crate::model::InventoryEntry;
 
-pub(super) const INVENTORY_COLUMNS: [InventoryColumn; 19] = [
+pub(super) const INVENTORY_COLUMNS: [InventoryColumn; 29] = [
     InventoryColumn::new(
         "Asset Number",
         16.0,
@@ -49,10 +49,70 @@ pub(super) const INVENTORY_COLUMNS: [InventoryColumn; 19] = [
         CellKind::WrappedText,
     ),
     InventoryColumn::new(
-        "Verified",
-        14.0,
-        InventoryField::Verified,
+        "Calibration Requirement",
+        20.0,
+        InventoryField::CalibrationRequirement,
         CellKind::Centered,
+    ),
+    InventoryColumn::new(
+        "Out to Calibration",
+        18.0,
+        InventoryField::OutToCalibration,
+        CellKind::Centered,
+    ),
+    InventoryColumn::new(
+        "Last Calibrated At",
+        18.0,
+        InventoryField::LastCalibratedAt,
+        CellKind::Text,
+    ),
+    InventoryColumn::new(
+        "Calibration Due At",
+        18.0,
+        InventoryField::CalibrationDueAt,
+        CellKind::Text,
+    ),
+    InventoryColumn::new(
+        "Calibration Interval Months",
+        20.0,
+        InventoryField::CalibrationIntervalMonths,
+        CellKind::Number,
+    ),
+    InventoryColumn::new(
+        "Calibration Health",
+        18.0,
+        InventoryField::CalibrationHealth,
+        CellKind::Centered,
+    ),
+    InventoryColumn::new(
+        "Certificate Ref",
+        20.0,
+        InventoryField::CertificateRef,
+        CellKind::Text,
+    ),
+    InventoryColumn::new(
+        "Calibration Vendor",
+        22.0,
+        InventoryField::CalibrationVendor,
+        CellKind::Text,
+    ),
+    InventoryColumn::new(
+        "Calibration Notes",
+        36.0,
+        InventoryField::CalibrationNotes,
+        CellKind::WrappedText,
+    ),
+    InventoryColumn::new(
+        "Verified At",
+        22.0,
+        InventoryField::VerifiedAt,
+        CellKind::Text,
+    ),
+    InventoryColumn::new(
+        "Verified By",
+        20.0,
+        InventoryField::VerifiedBy,
+        CellKind::Text,
     ),
     InventoryColumn::new(
         "Archived",
@@ -115,7 +175,17 @@ pub(super) enum InventoryField {
     Lifecycle,
     Working,
     Condition,
-    Verified,
+    CalibrationRequirement,
+    OutToCalibration,
+    LastCalibratedAt,
+    CalibrationDueAt,
+    CalibrationIntervalMonths,
+    CalibrationHealth,
+    CertificateRef,
+    CalibrationVendor,
+    CalibrationNotes,
+    VerifiedAt,
+    VerifiedBy,
     Archived,
     PicturePath,
     Links,
@@ -147,12 +217,24 @@ pub(super) fn inventory_text(entry: &InventoryEntry, field: InventoryField) -> &
         InventoryField::Lifecycle => &entry.lifecycle_status,
         InventoryField::Working => &entry.working_status,
         InventoryField::Condition => &entry.condition,
+        InventoryField::CalibrationRequirement => entry.calibration_requirement.display_label(),
+        InventoryField::LastCalibratedAt => entry.last_calibrated_at.as_deref().unwrap_or(""),
+        InventoryField::CalibrationDueAt => entry.calibration_due_at.as_deref().unwrap_or(""),
+        InventoryField::CertificateRef => entry.certificate_ref.as_deref().unwrap_or(""),
+        InventoryField::CalibrationVendor => entry.calibration_vendor.as_deref().unwrap_or(""),
+        InventoryField::CalibrationNotes => entry.calibration_notes.as_deref().unwrap_or(""),
+        InventoryField::VerifiedAt => entry.verified_at.as_deref().unwrap_or(""),
+        InventoryField::VerifiedBy => entry.verified_by.as_deref().unwrap_or(""),
         InventoryField::PicturePath => &entry.picture_path,
         InventoryField::Links => &entry.links,
         InventoryField::Notes => &entry.notes,
         InventoryField::CreatedAt => &entry.created_at,
         InventoryField::UpdatedAt => &entry.updated_at,
-        InventoryField::Qty | InventoryField::Verified | InventoryField::Archived => "",
+        InventoryField::Qty
+        | InventoryField::OutToCalibration
+        | InventoryField::CalibrationIntervalMonths
+        | InventoryField::CalibrationHealth
+        | InventoryField::Archived => "",
     }
 }
 
@@ -161,5 +243,37 @@ pub(super) fn yes_if(value: bool) -> &'static str {
         "Yes"
     } else {
         ""
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calibration_requirement_export_uses_user_facing_labels() {
+        let reference: InventoryEntry = serde_json::from_value(serde_json::json!({
+            "id": "1",
+            "entryUuid": "reference",
+            "description": "Reference meter",
+            "calibrationRequirement": "reference_only"
+        }))
+        .unwrap();
+        let not_required: InventoryEntry = serde_json::from_value(serde_json::json!({
+            "id": "2",
+            "entryUuid": "not-required",
+            "description": "Display only",
+            "calibrationRequirement": "not_required"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            inventory_text(&reference, InventoryField::CalibrationRequirement),
+            "Reference only"
+        );
+        assert_eq!(
+            inventory_text(&not_required, InventoryField::CalibrationRequirement),
+            "Not required"
+        );
     }
 }

@@ -5,9 +5,9 @@ use crate::{
     },
     model::{
         create_entry_from_input, normalize_entry_input, now_timestamp, update_entry_from_input,
-        validate_entry_input, CommandResult, InventoryDeleteMutationResult, InventoryEntry,
-        InventoryEntryEditContext, InventoryEntryInput, InventoryEntryMutationResult,
-        InventorySharedStatus,
+        validate_entry_input, CommandResult, ImportProvenance, InventoryDeleteMutationResult,
+        InventoryEntry, InventoryEntryEditContext, InventoryEntryInput,
+        InventoryEntryMutationResult, InventorySharedStatus,
     },
     store::InventoryDb,
     sync::{self, SyncOperationType},
@@ -43,7 +43,55 @@ pub(crate) fn create_entry_in_store(
 
     Ok(InventoryEntryMutationResult {
         entry,
-        message: "Entry added to the ME Inventory database.".to_string(),
+        message: "Entry added to the TE Test Equipment Inventory database.".to_string(),
+        mutation_mode: sync_state.mutation_mode,
+        shared: sync_state.shared,
+    })
+}
+
+pub(crate) fn create_imported_entry_in_store(
+    input: InventoryEntryInput,
+    entry_uuid: String,
+    provenance: ImportProvenance,
+    db: &InventoryDb,
+) -> CommandResult<InventoryEntryMutationResult> {
+    let input = normalize_entry_input(input);
+    validate_entry_input(&input)?;
+    let entry_uuid = entry_uuid.trim().to_ascii_lowercase();
+    if entry_uuid.len() != 32 || !entry_uuid.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("Imported entry UUID must be 32 hexadecimal characters.".to_string());
+    }
+    if db.find_entry(&entry_uuid)?.is_some() {
+        return Err("The deterministic imported entry UUID already exists.".to_string());
+    }
+
+    let id = db.next_entry_id()?;
+    let mut entry = create_entry_from_input(id, input);
+    entry.entry_uuid = entry_uuid;
+    entry.import_provenance = Some(provenance);
+    entry.manual_entry = false;
+    db.put_entry(&entry)?;
+    db.set_next_entry_id(id + 1)?;
+    let sync_state = match queue_entry_sync_operation_before_flush(
+        db,
+        SyncOperationType::InventoryEntryCreate,
+        entry.clone(),
+        Vec::new(),
+        None,
+    ) {
+        Ok(sync_state) => sync_state,
+        Err(error) => {
+            let _ = db.delete_entry(&entry);
+            let _ = db.set_next_entry_id(id);
+            db.flush();
+            return Err(error);
+        }
+    };
+    db.flush();
+
+    Ok(InventoryEntryMutationResult {
+        entry,
+        message: "Entry imported into the TE Test Equipment Inventory database.".to_string(),
         mutation_mode: sync_state.mutation_mode,
         shared: sync_state.shared,
     })
@@ -100,7 +148,7 @@ pub(crate) fn update_entry_in_store(
 
     Ok(InventoryEntryMutationResult {
         entry,
-        message: "Entry updated in the ME Inventory database.".to_string(),
+        message: "Entry updated in the TE Test Equipment Inventory database.".to_string(),
         mutation_mode: sync_state.mutation_mode,
         shared: sync_state.shared,
     })
@@ -116,14 +164,28 @@ pub(crate) fn toggle_verified_entry_in_store(
         .ok_or_else(|| "The selected entry could not be found.".to_string())?;
     let base_version = entry_base_version(&entry);
     let existing = entry.clone();
-    entry.verified_in_survey = next_verified;
+    if next_verified {
+        entry.verified_at = Some(now_timestamp());
+    } else {
+        entry.verified_at = None;
+        entry.verified_by = None;
+    }
     entry.updated_at = now_timestamp();
+    let changed_fields = changed_entry_fields(&existing, &entry);
+    if changed_fields.is_empty() {
+        return Ok(InventoryEntryMutationResult {
+            entry: existing,
+            message: "Verified state was already up to date.".to_string(),
+            mutation_mode: "local".to_string(),
+            shared: sync::shared_inventory_status(db, "FeOxDB local store ready."),
+        });
+    }
     db.put_entry(&entry)?;
     let sync_state = match queue_entry_sync_operation_before_flush(
         db,
         SyncOperationType::InventoryEntryVerify,
         entry.clone(),
-        vec!["verified_in_survey".to_string()],
+        changed_fields,
         base_version,
     ) {
         Ok(sync_state) => sync_state,
@@ -341,8 +403,20 @@ mod tests {
 
         let verified =
             toggle_verified_entry_in_store(&created.entry.entry_uuid, true, &db).unwrap();
-        assert!(verified.entry.verified_in_survey);
+        assert!(verified.entry.verified_at.is_some());
+        assert_eq!(verified.entry.verified_by, None);
         assert_local_outbox_status(&verified.mutation_mode, &verified.shared);
+
+        let verify_operation = read_outbox_operation(&db, 2);
+        assert_eq!(
+            verify_operation.payload.changed_fields,
+            vec!["verified_at".to_string()]
+        );
+
+        let cleared =
+            toggle_verified_entry_in_store(&created.entry.entry_uuid, false, &db).unwrap();
+        assert_eq!(cleared.entry.verified_at, None);
+        assert_eq!(cleared.entry.verified_by, None);
 
         let archived = set_archived_entry_in_store(&created.entry.entry_uuid, true, &db).unwrap();
         assert!(archived.entry.archived);
@@ -478,7 +552,9 @@ mod tests {
     fn assert_local_outbox_status(mutation_mode: &str, shared: &InventorySharedStatus) {
         assert_eq!(mutation_mode, "local");
         assert_eq!(shared.has_local_only_changes, Some(true));
-        assert!(shared.message.contains("queued for shared sync"));
+        assert!(!shared.enabled);
+        assert!(shared.message.contains("disabled for this release"));
+        assert!(shared.message.contains("sync is not a backup"));
         assert_eq!(shared.mutation_mode, "local");
     }
 

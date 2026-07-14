@@ -1,7 +1,7 @@
 import type { PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import type { Monitor, Window as TauriWindow } from "@tauri-apps/api/window";
 
-const WINDOW_STATE_STORAGE_KEY = "meInventory.windowState.v1";
+const WINDOW_STATE_STORAGE_KEY = "teTestEquipmentInventory.windowState.v1";
 const MIN_WINDOW_WIDTH = 1100;
 const MIN_WINDOW_HEIGHT = 720;
 const MAX_WINDOW_DIMENSION = 20_000;

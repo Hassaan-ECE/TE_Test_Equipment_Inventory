@@ -1,4 +1,3 @@
-import { APP_VERSION } from "@/app/branding";
 import { buildDefaultColumnVisibility, mergeColumnVisibility } from "@/features/inventory/lib";
 import type {
   ColumnKey,
@@ -6,14 +5,12 @@ import type {
   InventoryEntryInput,
   InventorySharedStatus,
   ThemeMode,
-  UpdateState,
 } from "@/features/inventory/types";
 
-export const THEME_STORAGE_KEY = "meInventory.theme";
-export const COLOR_ROWS_STORAGE_KEY = "meInventory.colorRows";
-export const COLUMN_VISIBILITY_STORAGE_KEY = "meInventory.columnVisibility";
+export const THEME_STORAGE_KEY = "teTestEquipmentInventory.theme";
+export const COLOR_ROWS_STORAGE_KEY = "teTestEquipmentInventory.colorRows";
+export const COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.columnVisibility";
 export const DEFAULT_SHARED_SYNC_INTERVAL_MS = 500;
-export const UPDATE_CHECK_INTERVAL_MS = 5 * 60_000;
 
 const MIN_SHARED_SYNC_INTERVAL_MS = 500;
 const MAX_SHARED_SYNC_INTERVAL_MS = 5 * 60_000;
@@ -34,45 +31,6 @@ export const DESKTOP_SHARED_PENDING_STATUS: InventorySharedStatus = {
   mutationMode: "local",
   syncIntervalMs: DEFAULT_SHARED_SYNC_INTERVAL_MS,
 };
-
-export function buildIdleUpdateState(): UpdateState {
-  return {
-    available: false,
-    currentVersion: APP_VERSION,
-    status: "idle",
-  };
-}
-
-export function chooseFreshUpdateState(current: UpdateState, next: UpdateState): UpdateState {
-  if (current.latestVersion && current.latestVersion === next.latestVersion) {
-    return getUpdateStatusRank(current.status) > getUpdateStatusRank(next.status) ? current : next;
-  }
-
-  return next;
-}
-
-function getUpdateStatusRank(status: UpdateState["status"]): number {
-  switch (status) {
-    case "idle":
-      return 0;
-    case "checking":
-      return 1;
-    case "not-available":
-      return 2;
-    case "available":
-      return 3;
-    case "downloading":
-      return 4;
-    case "ready":
-      return 5;
-    case "installing":
-      return 6;
-    case "error":
-      return 7;
-    default:
-      return 0;
-  }
-}
 
 export function sharedStatusesMatch(left: InventorySharedStatus, right: InventorySharedStatus): boolean {
   return (
@@ -110,17 +68,17 @@ export function hasDesktopBridge(): boolean {
   return typeof window !== "undefined" && Boolean(window.inventoryDesktop?.isDesktop);
 }
 
+/** Transient status only — totals and Local/Shared mode live in StatusStrip pills. */
 export function buildDefaultStatusMessage(
-  totalCount: number,
-  verifiedCount: number,
+  _totalCount: number,
+  _verifiedCount: number,
   dataSource: "desktop" | "mock",
   sharedStatus: InventorySharedStatus,
 ): string {
-  const summary = `Total: ${totalCount} | Verified: ${verifiedCount}/${totalCount}`;
-  if (dataSource !== "desktop" || !sharedStatus.message) {
-    return summary;
+  if (dataSource === "desktop" && sharedStatus.enabled && sharedStatus.message.trim()) {
+    return sharedStatus.message.trim();
   }
-  return `${summary} | ${sharedStatus.message}`;
+  return "";
 }
 
 export function buildLocalCreatedEntry(input: InventoryEntryInput): InventoryEntry {
@@ -143,7 +101,16 @@ export function buildLocalCreatedEntry(input: InventoryEntryInput): InventoryEnt
     lifecycleStatus: input.lifecycleStatus,
     workingStatus: input.workingStatus,
     condition: input.condition,
-    verifiedInSurvey: input.verifiedInSurvey,
+    calibrationRequirement: input.calibrationRequirement,
+    outToCalibration: input.outToCalibration,
+    lastCalibratedAt: input.lastCalibratedAt,
+    calibrationDueAt: input.calibrationDueAt,
+    calibrationIntervalMonths: input.calibrationIntervalMonths,
+    certificateRef: input.certificateRef,
+    calibrationVendor: input.calibrationVendor,
+    calibrationNotes: input.calibrationNotes,
+    verifiedAt: input.verifiedAt,
+    verifiedBy: input.verifiedBy,
     archived: input.archived,
     manualEntry: true,
     picturePath: input.picturePath ?? "",
@@ -169,7 +136,16 @@ export function buildLocalUpdatedEntry(existingEntry: InventoryEntry, input: Inv
     lifecycleStatus: input.lifecycleStatus,
     workingStatus: input.workingStatus,
     condition: input.condition,
-    verifiedInSurvey: input.verifiedInSurvey,
+    calibrationRequirement: input.calibrationRequirement,
+    outToCalibration: input.outToCalibration,
+    lastCalibratedAt: input.lastCalibratedAt,
+    calibrationDueAt: input.calibrationDueAt,
+    calibrationIntervalMonths: input.calibrationIntervalMonths,
+    certificateRef: input.certificateRef,
+    calibrationVendor: input.calibrationVendor,
+    calibrationNotes: input.calibrationNotes,
+    verifiedAt: input.verifiedAt,
+    verifiedBy: input.verifiedBy,
     archived: input.archived,
     picturePath: input.picturePath ?? "",
     updatedAt: new Date().toISOString(),

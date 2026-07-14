@@ -207,7 +207,7 @@ describe("InventoryShell shared sync", () => {
     const toggleVerifiedEntry = vi
       .fn()
       .mockResolvedValueOnce({
-        entry: { ...entry, verifiedInSurvey: true },
+        entry: { ...entry, verifiedAt: "2026-07-13T12:00:00Z" },
         message: "Verified state updated.",
         mutationMode: "local",
         shared: CONNECTED_SHARED_STATUS,
@@ -231,7 +231,7 @@ describe("InventoryShell shared sync", () => {
     await flushAsyncWork();
     syncInventory.mockClear();
 
-    const toggleButton = screen.getByRole("button", { name: /Toggle verified for Delayed sync entry/i });
+    const toggleButton = screen.getByRole("button", { name: /Verify Delayed sync entry/i });
     await user.click(toggleButton);
     await user.click(toggleButton);
 
@@ -307,7 +307,7 @@ describe("InventoryShell shared sync", () => {
       loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS, [entry])),
       syncInventory,
       toggleVerifiedEntry: vi.fn().mockResolvedValue({
-        entry: { ...entry, verifiedInSurvey: true },
+        entry: { ...entry, verifiedAt: "2026-07-13T12:00:00Z" },
         message: "Verified state updated.",
         mutationMode: "local",
         shared: CONNECTED_SHARED_STATUS,
@@ -320,7 +320,7 @@ describe("InventoryShell shared sync", () => {
     await flushAsyncWork();
     syncInventory.mockClear();
 
-    await user.click(screen.getByRole("button", { name: /Toggle verified for Unmount sync entry/i }));
+    await user.click(screen.getByRole("button", { name: /Verify Unmount sync entry/i }));
     unmount();
 
     await delay(50);
@@ -353,7 +353,7 @@ describe("InventoryShell shared sync", () => {
 
   it("keeps current rows when desktop sync reports no entry changes", async () => {
     const desktopEntries: InventoryEntry[] = [
-      {
+      buildTestEntry({
         id: "301",
         assetNumber: "ME-301",
         qty: 1,
@@ -366,14 +366,13 @@ describe("InventoryShell shared sync", () => {
         notes: "",
         lifecycleStatus: "active",
         workingStatus: "working",
-        verifiedInSurvey: true,
+        verifiedAt: "2026-07-13T12:00:00Z",
         archived: false,
         updatedAt: "2026-04-23 10:00:00",
-      },
+      }),
     ];
 
-    window.inventoryDesktop = {
-      isDesktop: true,
+    window.inventoryDesktop = createDesktopBridge({
       loadInventory: vi.fn().mockResolvedValue({
         dbPath: TEST_DB_PATH,
         entries: desktopEntries,
@@ -393,8 +392,8 @@ describe("InventoryShell shared sync", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/ME_Inventory_Export.xlsx" }),
-    };
+      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
+    });
 
     render(<InventoryShell />);
 

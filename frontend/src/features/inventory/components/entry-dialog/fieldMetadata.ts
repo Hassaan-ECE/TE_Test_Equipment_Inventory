@@ -1,6 +1,7 @@
 import {
   LIFECYCLE_OPTIONS,
   WORKING_STATUS_OPTIONS,
+  CALIBRATION_REQUIREMENT_OPTIONS,
   type InventoryEntry,
 } from "@/features/inventory/types";
 
@@ -8,7 +9,10 @@ import type { EntryFormState } from "./form";
 
 type EntryInputFieldKey = Exclude<
   keyof EntryFormState,
-  "archived" | "lifecycleStatus" | "notes" | "picturePath" | "verifiedInSurvey" | "workingStatus"
+  "archived" | "lifecycleStatus" | "notes" | "picturePath" | "workingStatus" |
+  "calibrationRequirement" | "outToCalibration" | "lastCalibratedAt" | "calibrationDueAt" |
+  "calibrationIntervalMonths" | "certificateRef" | "calibrationVendor" | "calibrationNotes" |
+  "verifiedAt" | "verifiedBy"
 >;
 
 interface EntryInputFieldConfig {
@@ -43,12 +47,13 @@ export const ENTRY_CONDITION_FIELD: EntryInputFieldConfig = {
 export const ENTRY_SELECT_FIELDS = [
   { key: "lifecycleStatus", label: "Lifecycle", options: LIFECYCLE_OPTIONS },
   { key: "workingStatus", label: "Working Status", options: WORKING_STATUS_OPTIONS },
+  { key: "calibrationRequirement", label: "Calibration requirement", options: CALIBRATION_REQUIREMENT_OPTIONS },
 ] as const;
 
 export type EntrySelectField = (typeof ENTRY_SELECT_FIELDS)[number];
 
 export const ENTRY_BOOLEAN_FIELDS = [
-  { key: "verifiedInSurvey", label: "Verified in survey" },
+  { key: "outToCalibration", label: "Out to calibration" },
   { key: "archived", label: "Archived entry" },
 ] as const;
 
@@ -58,7 +63,7 @@ export function buildEntryContextRows(entry: InventoryEntry): Array<{ label: str
     { label: "Created", value: entry.createdAt || "-" },
     { label: "Updated", value: entry.updatedAt || "-" },
     { label: "Status", value: entry.archived ? "Archived" : "Inventory" },
-    { label: "Verified", value: entry.verifiedInSurvey ? "Verified" : "Pending" },
+    { label: "Verified", value: entry.verifiedAt ? `${entry.verifiedAt}${entry.verifiedBy ? ` by ${entry.verifiedBy}` : ""}` : "Pending" },
     { label: "Manual Entry", value: entry.manualEntry ? "Yes" : "No" },
   ];
 }

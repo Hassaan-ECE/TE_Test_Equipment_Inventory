@@ -2,13 +2,17 @@ import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/shared/components/ui/badge";
+import { DropdownSelect } from "@/shared/components/ui/DropdownMenu";
 import { Input } from "@/shared/components/ui/input";
+import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
 import { Textarea } from "@/shared/components/ui/textarea";
+import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import type {
   InventoryEntry,
   InventoryEntryEditContext,
   InventoryEntryInput,
+  CalibrationRequirement,
   LifecycleStatus,
   WorkingStatus,
 } from "@/features/inventory/types";
@@ -26,6 +30,7 @@ import {
   buildFormState,
   formatOptionLabel,
   type EntryFormState,
+  suggestCalibrationDueDate,
   updateForm,
 } from "./entry-dialog/form";
 import { PicturePreviewPanel } from "./entry-dialog/PicturePreviewPanel";
@@ -33,10 +38,6 @@ import { useEntryDialogLayout } from "./entry-dialog/useEntryDialogLayout";
 import { useEntryDialogSubmit } from "./entry-dialog/useEntryDialogSubmit";
 import { useEntryPicturePreview } from "./entry-dialog/useEntryPicturePreview";
 import { useMountedRef } from "./entry-dialog/useMountedRef";
-
-const SELECT_CLASS =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-shadow focus:border-ring focus:ring-[3px] focus:ring-ring/18 dark:bg-neutral-950 dark:text-neutral-100";
-const OPTION_CLASS = "bg-background text-foreground dark:bg-neutral-950 dark:text-neutral-100";
 
 interface EntryDialogProps {
   defaultArchived?: boolean;
@@ -53,6 +54,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
   const [form, setForm] = useState<EntryFormState>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
+  const calibrationIntervalId = useId();
   const picturePath = form.picturePath.trim();
   const { handleSubmit, isSaving } = useEntryDialogSubmit({
     entry,
@@ -97,6 +99,10 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
       updateForm(setForm, field.key, value as LifecycleStatus);
       return;
     }
+    if (field.key === "calibrationRequirement") {
+      updateForm(setForm, field.key, value as CalibrationRequirement);
+      return;
+    }
 
     updateForm(setForm, field.key, value as WorkingStatus);
   }
@@ -130,15 +136,15 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={form.archived ? "warning" : "secondary"}>{form.archived ? "Archive" : "Inventory"}</Badge>
-                <Badge variant={form.verifiedInSurvey ? "success" : "outline"}>
-                  {form.verifiedInSurvey ? "Verified" : "Pending"}
+                <Badge variant={form.verifiedAt ? "success" : "outline"}>
+                  {form.verifiedAt ? `Verified ${form.verifiedAt}${form.verifiedBy ? ` by ${form.verifiedBy}` : ""}` : "Pending"}
                 </Badge>
               </div>
             </div>
           </div>
 
           <fieldset className="contents" disabled={readOnly || isSaving}>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 lg:py-4">
+            <ScrollRegion className="min-h-0 flex-1" contentClassName="px-5 py-4 lg:py-4">
               <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
                 {ENTRY_MAIN_INPUT_FIELDS.map((field) => (
                   <Field className={field.className} key={field.key} label={field.label}>
@@ -154,17 +160,15 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
 
                 {ENTRY_SELECT_FIELDS.map((field) => (
                   <Field key={field.key} label={field.label}>
-                    <select
-                      className={SELECT_CLASS}
+                    <DropdownSelect
+                      aria-label={field.label}
+                      options={field.options.map((option) => ({
+                        value: option,
+                        label: formatOptionLabel(option),
+                      }))}
                       value={form[field.key]}
-                      onChange={(event) => handleSelectChange(field, event.currentTarget.value)}
-                    >
-                      {field.options.map((option) => (
-                        <option className={OPTION_CLASS} key={option} value={option}>
-                          {formatOptionLabel(option)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleSelectChange(field, value)}
+                    />
                   </Field>
                 ))}
 
@@ -175,6 +179,43 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
                     onChange={(event) => updateForm(setForm, ENTRY_CONDITION_FIELD.key, event.currentTarget.value)}
                   />
                 </Field>
+
+                <Field label="Last calibrated"><Input type="date" value={form.lastCalibratedAt} onChange={(event) => updateForm(setForm, "lastCalibratedAt", event.currentTarget.value)} /></Field>
+                <Field label="Calibration due"><Input type="date" value={form.calibrationDueAt} onChange={(event) => updateForm(setForm, "calibrationDueAt", event.currentTarget.value)} /></Field>
+                <div className="block">
+                  <label
+                    className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                    htmlFor={calibrationIntervalId}
+                  >
+                    Calibration interval (months)
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id={calibrationIntervalId}
+                      inputMode="numeric"
+                      type="number"
+                      value={form.calibrationIntervalMonths}
+                      onChange={(event) => updateForm(setForm, "calibrationIntervalMonths", event.currentTarget.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const suggestion = suggestCalibrationDueDate(
+                          form.lastCalibratedAt.trim(),
+                          Number(form.calibrationIntervalMonths),
+                        );
+                        if (suggestion) updateForm(setForm, "calibrationDueAt", suggestion);
+                      }}
+                    >
+                      Suggest calibration due date
+                    </Button>
+                  </div>
+                </div>
+                <Field label="Certificate reference"><Input value={form.certificateRef} onChange={(event) => updateForm(setForm, "certificateRef", event.currentTarget.value)} /></Field>
+                <Field label="Calibration vendor"><Input value={form.calibrationVendor} onChange={(event) => updateForm(setForm, "calibrationVendor", event.currentTarget.value)} /></Field>
+                <Field label="Verified by"><Input value={form.verifiedBy} onChange={(event) => updateForm(setForm, "verifiedBy", event.currentTarget.value)} /></Field>
+                <Field className="lg:col-span-2" label="Calibration notes"><Textarea value={form.calibrationNotes} onChange={(event) => updateForm(setForm, "calibrationNotes", event.currentTarget.value)} /></Field>
 
                 {showInlinePicturePreview ? (
                   <div className="lg:col-span-2">
@@ -204,7 +245,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
                   </label>
                 ))}
               </div>
-            </div>
+            </ScrollRegion>
           </fieldset>
 
           {showsSidebarActions ? null : (
@@ -216,7 +257,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
 
         {showsSidebarActions && entry ? (
           <aside className="flex w-[19rem] shrink-0 flex-col bg-background/60 px-5 py-4">
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <ScrollRegion className="min-h-0 flex-1" contentClassName="pr-1">
               {showSidebarPicturePreview ? (
                 <PicturePreviewPanel compact picturePath={picturePath} preview={picturePreview} />
               ) : null}
@@ -233,7 +274,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
                   ))}
                 </div>
               </div>
-            </div>
+            </ScrollRegion>
 
             <div className="mt-4 shrink-0 border-t border-border/70 pt-4">
               <DialogActions error={error} formId={formId} isSaving={isSaving} layout="sidebar" readOnly={readOnly} onClose={onClose} />

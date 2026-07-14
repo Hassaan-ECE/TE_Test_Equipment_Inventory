@@ -6,6 +6,9 @@ pub(super) const ENTRY_RANGE_END: &str = "entry:\u{10ffff}";
 pub(super) const ENTRY_ID_PREFIX: &str = "entry_id:";
 pub(super) const ENTRY_SCAN_BATCH_LIMIT: usize = 512;
 pub(super) const META_NEXT_ID: &[u8] = b"__meta:next_entry_id";
+pub(super) const IMPORT_PREVIEW_PREFIX: &str = "import:preview:";
+pub(super) const IMPORT_COMPLETED_PREFIX: &str = "import:completed:";
+pub(super) const IMPORT_ROW_PREFIX: &str = "import:row:";
 pub(super) const SYNC_META_PREFIX: &str = "meta:";
 pub(super) const SYNC_STATE_PREFIX: &str = "sync:";
 // Schema metadata is exercised by tests and migration-safe storage helpers.
@@ -35,6 +38,39 @@ pub(super) fn entry_key(entry_uuid: &str) -> String {
 
 pub(super) fn entry_id_key(entry_id: &str) -> String {
     format!("{ENTRY_ID_PREFIX}{entry_id}")
+}
+
+pub(super) fn import_preview_key(batch_id: &str) -> CommandResult<String> {
+    import_key(IMPORT_PREVIEW_PREFIX, batch_id)
+}
+
+pub(super) fn import_completed_key(batch_id: &str) -> CommandResult<String> {
+    import_key(IMPORT_COMPLETED_PREFIX, batch_id)
+}
+
+pub(super) fn import_row_key(batch_id: &str, source_row: u64) -> CommandResult<String> {
+    if source_row == 0 {
+        return Err("source_row must be greater than zero".to_string());
+    }
+    let batch_id = normalized_import_batch_id(batch_id)?;
+    Ok(format!("{IMPORT_ROW_PREFIX}{batch_id}:{source_row:012}"))
+}
+
+fn import_key(prefix: &str, batch_id: &str) -> CommandResult<String> {
+    Ok(format!("{prefix}{}", normalized_import_batch_id(batch_id)?))
+}
+
+fn normalized_import_batch_id(batch_id: &str) -> CommandResult<String> {
+    let value = batch_id.trim();
+    if value.len() < 16
+        || value.len() > 96
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        return Err("import batch_id has an invalid format".to_string());
+    }
+    Ok(value.to_string())
 }
 
 pub(super) fn sync_outbox_key(local_seq: u64) -> CommandResult<String> {

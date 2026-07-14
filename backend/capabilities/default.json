@@ -13,9 +13,6 @@
     "core:window:allow-outer-position",
     "core:window:allow-outer-size",
     "core:window:allow-set-size",
-    "core:window:allow-set-position",
-    "updater:allow-check",
-    "updater:allow-download",
-    "updater:allow-install"
+    "core:window:allow-set-position"
   ]
 }

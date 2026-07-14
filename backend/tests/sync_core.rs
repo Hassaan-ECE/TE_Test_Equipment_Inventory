@@ -23,14 +23,18 @@ use sync::{last_local_recovery_message, queue_entry_operation, recover_local_syn
 use sync_fixtures::unique_test_dir;
 
 #[test]
-fn shared_root_prefers_env_override_and_defaults_to_me_path() {
+fn shared_root_prefers_env_override_and_defaults_to_te_test_equipment_path() {
     assert_eq!(
         resolve_shared_root_from_env_value(None),
-        PathBuf::from(DEFAULT_SHARED_ROOT)
+        PathBuf::from(r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment",)
     );
     assert_eq!(
-        resolve_shared_root_from_env_value(Some(OsString::from("  C:\\ME Shared Root  "))),
-        PathBuf::from("C:\\ME Shared Root")
+        PathBuf::from(DEFAULT_SHARED_ROOT),
+        PathBuf::from(r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment",)
+    );
+    assert_eq!(
+        resolve_shared_root_from_env_value(Some(OsString::from("  C:\\TE Shared Root  "))),
+        PathBuf::from("C:\\TE Shared Root")
     );
 }
 
@@ -68,6 +72,53 @@ fn canonical_checksum_ignores_checksum_field_and_uses_sha256() {
 
     operation.entity_id = "entry-b".to_string();
     assert_ne!(canonical_operation_checksum(&operation).unwrap(), checksum);
+}
+
+#[test]
+fn sync_schema_v2_operation_payload_preserves_calibration_verification_and_provenance() {
+    assert_eq!(SYNC_SCHEMA_VERSION, 2);
+    let identity = SyncClientIdentity {
+        client_id: "client-contract".to_string(),
+        device_id: "device-contract".to_string(),
+    };
+    let mut entry = sample_entry("entry-contract");
+    entry.calibration_requirement = model::CalibrationRequirement::Required;
+    entry.out_to_calibration = true;
+    entry.calibration_due_at = Some("2027-07-13".to_string());
+    entry.verified_at = Some("2026-07-13T12:00:00Z".to_string());
+    entry.verified_by = Some("Taylor".to_string());
+    entry.import_provenance = Some(model::ImportProvenance {
+        batch_id: "sha256:contract".to_string(),
+        source_filename: "synthetic.csv".to_string(),
+        source_sheet: None,
+        source_row: 3,
+        original_id: None,
+        original_asset_number: Some("TE-3".to_string()),
+        original_serial_number: Some("SN-3".to_string()),
+    });
+
+    let operation = build_entry_operation(
+        &identity,
+        1,
+        SyncOperationType::InventoryEntryCreate,
+        entry,
+        Vec::new(),
+        None,
+    )
+    .unwrap();
+    let serialized = canonical_operation_json(&operation).unwrap();
+    let decoded: SyncOperationEnvelope = serde_json::from_slice(&serialized).unwrap();
+    let payload = decoded.payload.entry.unwrap();
+
+    assert_eq!(payload.calibration_due_at.as_deref(), Some("2027-07-13"));
+    assert_eq!(payload.verified_by.as_deref(), Some("Taylor"));
+    assert_eq!(
+        payload
+            .import_provenance
+            .as_ref()
+            .map(|value| value.source_row),
+        Some(3)
+    );
 }
 
 #[test]
@@ -926,7 +977,17 @@ fn sample_entry(entry_uuid: &str) -> InventoryEntry {
         lifecycle_status: "active".to_string(),
         working_status: "unknown".to_string(),
         condition: String::new(),
-        verified_in_survey: false,
+        calibration_requirement: model::CalibrationRequirement::Unknown,
+        out_to_calibration: false,
+        last_calibrated_at: None,
+        calibration_due_at: None,
+        calibration_interval_months: None,
+        certificate_ref: None,
+        calibration_vendor: None,
+        calibration_notes: None,
+        verified_at: None,
+        verified_by: None,
+        import_provenance: None,
         archived: false,
         manual_entry: true,
         picture_path: String::new(),

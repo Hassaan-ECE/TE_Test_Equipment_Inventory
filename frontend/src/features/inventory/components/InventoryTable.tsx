@@ -1,9 +1,11 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { InventoryTableBody } from "@/features/inventory/components/table/InventoryTableBody";
 import { InventoryTableColumnGroup, InventoryTableHeader } from "@/features/inventory/components/table/InventoryTableHeader";
 import { ROW_HEIGHT, clampScrollTop, getVisibleRange } from "@/features/inventory/components/table/virtualization";
 import type { ColumnConfig, InventoryEntry, SortState } from "@/features/inventory/types";
+import { getLocalDateString } from "@/features/inventory/lib";
+import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
 
 interface InventoryTableProps {
   activeEntryId?: string | null;
@@ -17,6 +19,7 @@ interface InventoryTableProps {
   onToggleVerified: (entryId: string) => void;
   entries: InventoryEntry[];
   sortState: SortState;
+  localDate?: string;
 }
 
 export const InventoryTable = memo(function InventoryTable({
@@ -31,10 +34,13 @@ export const InventoryTable = memo(function InventoryTable({
   onToggleVerified,
   entries,
   sortState,
+  localDate = getLocalDateString(),
 }: InventoryTableProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLTableSectionElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(640);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const visibleRange = useMemo(
     () => getVisibleRange(entries.length, scrollTop, viewportHeight),
     [entries.length, scrollTop, viewportHeight],
@@ -43,6 +49,16 @@ export const InventoryTable = memo(function InventoryTable({
   const topSpacerHeight = visibleRange.start * ROW_HEIGHT;
   const bottomSpacerHeight = Math.max(0, (entries.length - visibleRange.end) * ROW_HEIGHT);
 
+  const measureHeaderHeight = useCallback(() => {
+    const header = headerRef.current;
+    if (!header) {
+      return;
+    }
+    // Round so the fade sits flush under the sticky header (no 1px hairline gap).
+    const nextHeight = Math.round(header.getBoundingClientRect().height);
+    setHeaderHeight((current) => (current === nextHeight ? current : nextHeight));
+  }, []);
+
   useEffect(() => {
     const node = scrollRef.current;
     if (!node) {
@@ -50,16 +66,21 @@ export const InventoryTable = memo(function InventoryTable({
     }
 
     setViewportHeight(node.clientHeight || 640);
+    measureHeaderHeight();
     if (typeof ResizeObserver === "undefined") {
       return undefined;
     }
 
     const observer = new ResizeObserver(() => {
       setViewportHeight(node.clientHeight || 640);
+      measureHeaderHeight();
     });
     observer.observe(node);
+    if (headerRef.current) {
+      observer.observe(headerRef.current);
+    }
     return () => observer.disconnect();
-  }, []);
+  }, [columns, measureHeaderHeight]);
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -74,10 +95,14 @@ export const InventoryTable = memo(function InventoryTable({
   }, [entries.length, viewportHeight]);
 
   return (
-    <section className="flex h-full min-h-0 flex-1 overflow-hidden rounded-3xl border border-border/70 bg-card/80 shadow-sm">
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+    <section className="flex h-full min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-sm">
+      <ScrollRegion
+        aria-label="Inventory table"
+        className="min-h-0 flex-1"
+        scrollClassName="overflow-x-hidden"
+        scrollRef={scrollRef}
+        topCueClassName="z-10"
+        topCueStyle={headerHeight > 0 ? { top: headerHeight } : undefined}
         onScroll={(event) => {
           const nextViewportHeight = event.currentTarget.clientHeight || viewportHeight;
           setScrollTop(clampScrollTop(event.currentTarget.scrollTop, entries.length, nextViewportHeight));
@@ -85,7 +110,12 @@ export const InventoryTable = memo(function InventoryTable({
       >
         <table className="w-full table-fixed border-separate border-spacing-0">
           <InventoryTableColumnGroup columns={columns} />
-          <InventoryTableHeader columns={columns} sortState={sortState} onSortChange={onSortChange} />
+          <InventoryTableHeader
+            columns={columns}
+            headerRef={headerRef}
+            sortState={sortState}
+            onSortChange={onSortChange}
+          />
           <InventoryTableBody
             activeEntryId={activeEntryId}
             bottomSpacerHeight={bottomSpacerHeight}
@@ -94,13 +124,14 @@ export const InventoryTable = memo(function InventoryTable({
             columns={columns}
             topSpacerHeight={topSpacerHeight}
             visibleEntries={visibleEntries}
+            localDate={localDate}
             onOpenContextMenu={onOpenContextMenu}
             onOpenEntry={onOpenEntry}
             onOpenExternalLink={onOpenExternalLink}
             onToggleVerified={onToggleVerified}
           />
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 });

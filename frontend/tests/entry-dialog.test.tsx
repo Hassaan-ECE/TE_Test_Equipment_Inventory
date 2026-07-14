@@ -7,7 +7,17 @@ import type { InventoryEntry, InventoryEntryInput } from "@/features/inventory/t
 
 const BASE_ENTRY: InventoryEntry = {
   archived: false,
-  assetNumber: "ME-401",
+  assetNumber: "TE-401",
+  assignedTo: "",
+  calibrationRequirement: "unknown",
+  lastCalibratedAt: "2026-01-31",
+  calibrationDueAt: "2027-01-31",
+  calibrationIntervalMonths: 12,
+  certificateRef: "CERT-401",
+  calibrationVendor: "Acme Calibration",
+  calibrationNotes: "Return through metrology intake",
+  condition: "",
+  createdAt: "2026-04-23T09:00:00Z",
   description: "Precision fixture plate",
   id: "401",
   links: "",
@@ -17,12 +27,15 @@ const BASE_ENTRY: InventoryEntry = {
   model: "FP-401",
   notes: "",
   picturePath: "C:\\Pictures\\fixture-plate.jpg",
+  outToCalibration: false,
   projectName: "Fixture Lab",
   qty: 1,
   entryUuid: "uuid-401",
+  manualEntry: true,
   serialNumber: "SER-401",
   updatedAt: "2026-04-23 09:00:00",
-  verifiedInSurvey: true,
+  verifiedAt: "2026-04-23T09:00:00Z",
+  verifiedBy: "Avery",
   workingStatus: "working",
 };
 
@@ -189,9 +202,8 @@ describe("EntryDialog", () => {
     expect(dialogPanel).toHaveClass("max-h-[92vh]", "lg:max-h-[94vh]");
   });
 
-  it("uses dark-safe native select and option colors", () => {
-    document.documentElement.classList.add("dark");
-
+  it("uses styled dropdown selects for lifecycle and working status", async () => {
+    const user = userEvent.setup();
     render(
       <EntryDialog
         mode="edit"
@@ -201,13 +213,91 @@ describe("EntryDialog", () => {
       />,
     );
 
-    const lifecycleSelect = screen.getByLabelText("Lifecycle");
-    const workingStatusSelect = screen.getByLabelText("Working Status");
+    const lifecycleSelect = screen.getByRole("button", { name: "Lifecycle" });
+    const workingStatusSelect = screen.getByRole("button", { name: "Working Status" });
 
-    expect(lifecycleSelect).toHaveClass("dark:bg-neutral-950", "dark:text-neutral-100");
-    expect(workingStatusSelect).toHaveClass("dark:bg-neutral-950", "dark:text-neutral-100");
-    expect(screen.getByRole("option", { name: "Active" })).toHaveClass("dark:bg-neutral-950", "dark:text-neutral-100");
-    expect(screen.getByRole("option", { name: "Working" })).toHaveClass("dark:bg-neutral-950", "dark:text-neutral-100");
+    expect(lifecycleSelect).toHaveAttribute("aria-haspopup", "listbox");
+    expect(workingStatusSelect).toHaveAttribute("aria-haspopup", "listbox");
+    expect(lifecycleSelect).toHaveTextContent(/Active/i);
+    expect(workingStatusSelect).toHaveTextContent(/Working/i);
+
+    await user.click(lifecycleSelect);
+    expect(screen.getByRole("option", { name: "Active" })).toBeInTheDocument();
+  });
+
+  it("shows and preserves every calibration and verification field while editing", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<EntryDialog mode="edit" entry={{ ...BASE_ENTRY, calibrationRequirement: "reference_only", outToCalibration: true }} onClose={vi.fn()} onSave={onSave} />);
+
+    expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent(/Reference only/i);
+    expect(screen.getByLabelText("Out to calibration")).toBeChecked();
+    expect(screen.getByLabelText("Last calibrated")).toHaveValue("2026-01-31");
+    expect(screen.getByLabelText("Calibration due")).toHaveValue("2027-01-31");
+    expect(screen.getByLabelText("Calibration interval (months)")).toHaveValue(12);
+    expect(screen.getByLabelText("Certificate reference")).toHaveValue("CERT-401");
+    expect(screen.getByLabelText("Calibration vendor")).toHaveValue("Acme Calibration");
+    expect(screen.getByLabelText("Calibration notes")).toHaveValue("Return through metrology intake");
+    expect(screen.getByLabelText("Verified by")).toHaveValue("Avery");
+    expect(screen.getByText(/Verified 2026-04-23T09:00:00Z/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      calibrationRequirement: "reference_only",
+      outToCalibration: true,
+      lastCalibratedAt: "2026-01-31",
+      calibrationDueAt: "2027-01-31",
+      calibrationIntervalMonths: 12,
+      certificateRef: "CERT-401",
+      calibrationVendor: "Acme Calibration",
+      calibrationNotes: "Return through metrology intake",
+      verifiedAt: "2026-04-23T09:00:00Z",
+      verifiedBy: "Avery",
+    }), expect.objectContaining({ changedFields: [] }));
+  });
+
+  it("blocks invalid calibration dates and intervals with field-specific messages", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<EntryDialog mode="edit" entry={BASE_ENTRY} onClose={vi.fn()} onSave={onSave} />);
+
+    await user.clear(screen.getByLabelText("Calibration due"));
+    await user.type(screen.getByLabelText("Calibration due"), "2025-12-31");
+    await user.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(screen.getByText(/Calibration due date cannot be before last calibrated date/i)).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText("Calibration due"));
+    await user.type(screen.getByLabelText("Calibration due"), "2027-01-31");
+    await user.clear(screen.getByLabelText("Calibration interval (months)"));
+    await user.type(screen.getByLabelText("Calibration interval (months)"), "1201");
+    await user.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(screen.getByText(/Calibration interval must be between 1 and 1200 months/i)).toBeInTheDocument();
+  });
+
+  it("suggests a due date only after an explicit button click", async () => {
+    const user = userEvent.setup();
+    render(<EntryDialog mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
+    await user.type(screen.getByLabelText("Asset Number"), "TE-900");
+    await user.click(screen.getByRole("button", { name: "Calibration requirement" }));
+    await user.click(screen.getByRole("option", { name: "Required" }));
+    await user.type(screen.getByLabelText("Last calibrated"), "2026-01-31");
+    await user.type(screen.getByLabelText("Calibration interval (months)"), "1");
+
+    expect(screen.getByLabelText("Calibration due")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Suggest calibration due date" }));
+    expect(screen.getByLabelText("Calibration due")).toHaveValue("2026-02-28");
+  });
+
+  it("labels only the calibration interval input instead of wrapping its action button", () => {
+    render(<EntryDialog mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
+
+    const input = screen.getByLabelText("Calibration interval (months)");
+    const label = screen.getByText("Calibration interval (months)");
+    const suggestButton = screen.getByRole("button", { name: "Suggest calibration due date" });
+
+    expect(label).toHaveAttribute("for", input.id);
+    expect(label).not.toContainElement(suggestButton);
   });
 });
 

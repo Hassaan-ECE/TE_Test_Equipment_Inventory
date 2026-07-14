@@ -4,16 +4,16 @@
   "version": "0.1.0",
   "identifier": "com.te.test.equipment.inventory",
   "build": {
-    "beforeDevCommand": "node node_modules/vite/bin/vite.js --config frontend/vite.config.ts",
+    "beforeDevCommand": "bun run dev:frontend",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc -b tsconfig.json && node --max-old-space-size=4096 node_modules/vite/bin/vite.js build --config frontend/vite.config.ts",
+    "beforeBuildCommand": "bun run build:frontend",
     "frontendDist": "../frontend/dist"
   },
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "TE Test Equipment Inventory",
+        "title": "TE Test Equipment Inventory v0.1.0",
         "width": 1440,
         "height": 920,
         "minWidth": 1100,
@@ -31,7 +31,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "targets": ["nsis"],
     "publisher": "Syed Hassaan Shah",
     "copyright": "Copyright (c) 2026 Syed Hassaan Shah",
@@ -43,16 +43,5 @@
       }
     },
     "icon": ["icons/icon.ico"]
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhCRjYzQkE5QTU0ODhDOEUKUldTT2pFaWxxVHYyaStxTmdLMlFDNDdsTEtCMTdtZkw5eGdEcjlkZHhSTFVVMVVFTFQySE94VnQK",
-      "endpoints": [
-        "https://github.com/Hassaan-ECE/ME_Inventory_App_Tauri_v2/releases/latest/download/latest.json"
-      ],
-      "windows": {
-        "installMode": "quiet"
-      }
-    }
   }
 }

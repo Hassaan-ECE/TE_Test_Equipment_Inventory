@@ -4,6 +4,7 @@ import {
   buildResultsLabel,
   filterEntries,
   getInventoryCounts,
+  getLocalDateString,
   getVisibleColumns,
   sortEntries,
 } from "@/features/inventory/lib";
@@ -37,14 +38,15 @@ export function useInventoryViewModel({
   sortState,
 }: UseInventoryViewModelOptions) {
   const sourceEntries = isLoading ? LOADING_ENTRIES : entries;
+  const localDate = getLocalDateString();
   const deferredQuery = useDeferredValue(query);
   const deferredFilters = useDeferredValue(filters);
   const filteredEntries = useMemo(
-    () => filterEntries(sourceEntries, scope, deferredQuery, deferredFilters),
-    [deferredFilters, deferredQuery, scope, sourceEntries],
+    () => filterEntries(sourceEntries, scope, deferredQuery, deferredFilters, localDate),
+    [deferredFilters, deferredQuery, localDate, scope, sourceEntries],
   );
-  const sortedEntries = useMemo(() => sortEntries(filteredEntries, sortState), [filteredEntries, sortState]);
-  const counts = useMemo(() => getInventoryCounts(sourceEntries), [sourceEntries]);
+  const sortedEntries = useMemo(() => sortEntries(filteredEntries, sortState, localDate), [filteredEntries, localDate, sortState]);
+  const counts = useMemo(() => getInventoryCounts(sourceEntries, localDate), [localDate, sourceEntries]);
   const visibleColumns = useMemo(() => getVisibleColumns(columnVisibility), [columnVisibility]);
   const entriesById = useMemo(() => {
     const map = new Map<string, InventoryEntry>();
@@ -65,5 +67,6 @@ export function useInventoryViewModel({
       ? "Loading inventory entries..."
       : buildResultsLabel(sortedEntries.length, scope, deferredQuery, deferredFilters),
     visibleColumns,
+    localDate,
   };
 }

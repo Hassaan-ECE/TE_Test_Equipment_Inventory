@@ -1,4 +1,5 @@
-import { ArrowUpDownIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
+import type { Ref } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import type { ColumnConfig, SortState } from "@/features/inventory/types";
@@ -11,6 +12,7 @@ interface InventoryTableColumnGroupProps {
 
 interface InventoryTableHeaderProps {
   columns: readonly ColumnConfig[];
+  headerRef?: Ref<HTMLTableSectionElement | null>;
   onSortChange: (columnKey: ColumnConfig["key"]) => void;
   sortState: SortState;
 }
@@ -25,37 +27,53 @@ export function InventoryTableColumnGroup({ columns }: InventoryTableColumnGroup
   );
 }
 
-export function InventoryTableHeader({ columns, onSortChange, sortState }: InventoryTableHeaderProps) {
+export function InventoryTableHeader({ columns, headerRef, onSortChange, sortState }: InventoryTableHeaderProps) {
   return (
-    <thead className="sticky top-0 z-10 bg-background">
+    <thead ref={headerRef} className="sticky top-0 z-20 bg-card">
       <tr>
-        {columns.map((column) => (
-          <th
-            key={column.key}
-            className={cn(
-              "border-b border-border px-2.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground sm:px-4 sm:py-3",
-              column.align === "center" ? "text-center" : "text-left",
-            )}
-            scope="col"
-          >
-            {column.sortable ? (
-              <button
-                className={cn(
-                  "inline-flex min-w-0 max-w-full items-center gap-1 transition-colors hover:text-foreground",
-                  column.align === "center" ? "justify-center" : "",
-                  sortState.column === column.key ? "text-foreground" : "",
-                )}
-                type="button"
-                onClick={() => onSortChange(column.key)}
-              >
-                <span>{column.label}</span>
-                <ArrowUpDownIcon className="size-3.5" />
-              </button>
-            ) : (
-              column.label
-            )}
-          </th>
-        ))}
+        {columns.map((column) => {
+          const isActiveSort = sortState.column === column.key;
+          const sortLabel = !column.sortable
+            ? undefined
+            : isActiveSort
+              ? `Sort by ${column.label}, currently ${sortState.direction === "asc" ? "ascending" : "descending"}`
+              : `Sort by ${column.label}`;
+
+          return (
+            <th
+              key={column.key}
+              className={cn(
+                "border-b border-border bg-card px-2.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground sm:px-4 sm:py-3",
+                column.align === "center" ? "text-center" : "text-left",
+              )}
+              scope="col"
+            >
+              {column.sortable ? (
+                <button
+                  aria-label={sortLabel}
+                  className={cn(
+                    "inline-flex min-w-0 max-w-full items-center gap-1 transition-colors hover:text-foreground",
+                    column.align === "center" ? "justify-center" : "",
+                    isActiveSort ? "text-foreground" : "",
+                  )}
+                  type="button"
+                  onClick={() => onSortChange(column.key)}
+                >
+                  <span>{column.label}</span>
+                  {isActiveSort ? (
+                    sortState.direction === "asc" ? (
+                      <ArrowUpIcon aria-hidden className="size-3.5 shrink-0" />
+                    ) : (
+                      <ArrowDownIcon aria-hidden className="size-3.5 shrink-0" />
+                    )
+                  ) : null}
+                </button>
+              ) : (
+                column.label
+              )}
+            </th>
+          );
+        })}
       </tr>
     </thead>
   );

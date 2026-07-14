@@ -4,8 +4,24 @@ use crate::{model::InventorySharedStatus, store::InventoryDb};
 
 use super::{
     queue::count_pending_local_operations, SharedSyncPaths, SyncCoreResult, DEFAULT_SHARED_ROOT,
-    SHARED_ROOT_ENV, SHARED_SYNC_INTERVAL_MS,
+    SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SHARED_SYNC_INTERVAL_MS,
 };
+
+const SHARED_SYNC_DISABLED_MESSAGE: &str =
+    "Shared sync is disabled for this release. Changes stay on this computer; sync is not a backup.";
+
+pub(crate) fn shared_sync_enabled() -> bool {
+    shared_sync_enabled_from_env_value(env::var_os(SHARED_SYNC_ENABLED_ENV))
+}
+
+fn shared_sync_enabled_from_env_value(value: Option<OsString>) -> bool {
+    value.is_some_and(|value| {
+        matches!(
+            value.to_string_lossy().trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
 
 pub(crate) fn resolve_shared_root() -> PathBuf {
     resolve_shared_root_from_env_value(env::var_os(SHARED_ROOT_ENV))
@@ -36,6 +52,9 @@ pub(crate) fn shared_inventory_status(
     db: &InventoryDb,
     message: impl Into<String>,
 ) -> InventorySharedStatus {
+    if !shared_sync_enabled() {
+        return disabled_shared_status(Some(db), SHARED_SYNC_DISABLED_MESSAGE);
+    }
     let paths = resolved_shared_sync_paths();
     let available = paths.shared_root.exists();
     let pending_count =
@@ -44,6 +63,9 @@ pub(crate) fn shared_inventory_status(
 }
 
 pub(crate) fn startup_inventory_status(message: impl Into<String>) -> InventorySharedStatus {
+    if !shared_sync_enabled() {
+        return disabled_shared_status(None, SHARED_SYNC_DISABLED_MESSAGE);
+    }
     let paths = resolved_shared_sync_paths();
     let available = paths.shared_root.exists();
     InventorySharedStatus {
@@ -61,6 +83,9 @@ pub(crate) fn startup_inventory_status(message: impl Into<String>) -> InventoryS
 }
 
 pub(crate) fn queued_local_status(db: &InventoryDb) -> InventorySharedStatus {
+    if !shared_sync_enabled() {
+        return disabled_shared_status(Some(db), SHARED_SYNC_DISABLED_MESSAGE);
+    }
     let paths = resolved_shared_sync_paths();
     let available = paths.shared_root.exists();
     let pending_count =
@@ -73,6 +98,25 @@ pub(crate) fn queued_local_status(db: &InventoryDb) -> InventorySharedStatus {
         0,
         "Local change saved and queued for shared sync.".to_string(),
     )
+}
+
+pub(crate) fn disabled_shared_status(
+    db: Option<&InventoryDb>,
+    message: impl Into<String>,
+) -> InventorySharedStatus {
+    InventorySharedStatus {
+        available: false,
+        can_modify: true,
+        enabled: false,
+        has_local_only_changes: db
+            .map(|db| count_pending_local_operations(db, None).unwrap_or(0) > 0),
+        message: message.into(),
+        mutation_mode: "local".to_string(),
+        revision: db.and_then(|db| db.sync_revision().ok().map(|revision| revision.to_string())),
+        last_snapshot_id: db.and_then(|db| db.last_snapshot_id().ok().flatten()),
+        shared_root_path: None,
+        sync_interval_ms: None,
+    }
 }
 
 pub(super) fn build_shared_status(
@@ -107,5 +151,27 @@ pub(super) fn build_shared_status(
         last_snapshot_id: db.last_snapshot_id().ok().flatten(),
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
         sync_interval_ms: Some(SHARED_SYNC_INTERVAL_MS),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shared_sync_enabled_from_env_value;
+    use std::ffi::OsString;
+
+    #[test]
+    fn shared_sync_requires_an_explicit_truthy_gate() {
+        assert!(!shared_sync_enabled_from_env_value(None));
+        assert!(!shared_sync_enabled_from_env_value(Some(OsString::from(
+            ""
+        ))));
+        assert!(!shared_sync_enabled_from_env_value(Some(OsString::from(
+            "false"
+        ))));
+        for value in ["1", " true ", "YES", "on"] {
+            assert!(shared_sync_enabled_from_env_value(Some(OsString::from(
+                value
+            ))));
+        }
     }
 }

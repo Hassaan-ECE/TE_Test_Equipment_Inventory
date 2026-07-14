@@ -2,7 +2,7 @@ import { CheckIcon } from "lucide-react";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { toSafeExternalUrl } from "@/shared/lib/externalUrl";
-import { formatLinkLabel } from "@/features/inventory/lib";
+import { calibrationHealthLabel, calibrationRequirementLabel, deriveCalibrationHealth, formatLinkLabel } from "@/features/inventory/lib";
 import { cn } from "@/shared/lib/utils";
 import type { ColumnConfig, InventoryEntry } from "@/features/inventory/types";
 
@@ -18,6 +18,7 @@ interface InventoryTableBodyProps {
   onToggleVerified: (entryId: string) => void;
   topSpacerHeight: number;
   visibleEntries: InventoryEntry[];
+  localDate: string;
 }
 
 interface InventoryTableRowProps {
@@ -26,6 +27,7 @@ interface InventoryTableRowProps {
   colorRows: boolean;
   columns: readonly ColumnConfig[];
   entry: InventoryEntry;
+  localDate: string;
   onOpenContextMenu: (entryId: string, clientX: number, clientY: number) => void;
   onOpenEntry: (entryId: string) => void;
   onOpenExternalLink: (url: string) => void;
@@ -44,6 +46,7 @@ export function InventoryTableBody({
   onToggleVerified,
   topSpacerHeight,
   visibleEntries,
+  localDate,
 }: InventoryTableBodyProps) {
   return (
     <tbody>
@@ -56,6 +59,7 @@ export function InventoryTableBody({
           colorRows={colorRows}
           columns={columns}
           entry={entry}
+          localDate={localDate}
           onOpenContextMenu={onOpenContextMenu}
           onOpenEntry={onOpenEntry}
           onOpenExternalLink={onOpenExternalLink}
@@ -73,6 +77,7 @@ function InventoryTableRow({
   colorRows,
   columns,
   entry,
+  localDate,
   onOpenContextMenu,
   onOpenEntry,
   onOpenExternalLink,
@@ -104,7 +109,7 @@ function InventoryTableRow({
             column.align === "center" ? "text-center" : "text-left",
           )}
         >
-          {renderCell(entry, column, onToggleVerified, canModifyEntries, onOpenExternalLink)}
+          {renderCell(entry, column, onToggleVerified, canModifyEntries, onOpenExternalLink, localDate)}
         </td>
       ))}
     </tr>
@@ -125,20 +130,23 @@ function renderCell(
   onToggleVerified: (entryId: string) => void,
   canModifyEntries: boolean,
   onOpenExternalLink: (url: string) => void,
+  localDate: string,
 ) {
   switch (column.key) {
     case "verified":
       return (
         <button
-          aria-label={`Toggle verified for ${entry.description}`}
+          aria-label={entry.verifiedAt
+            ? `Clear verification for ${entry.description}, verified ${entry.verifiedAt}${entry.verifiedBy ? ` by ${entry.verifiedBy}` : ""}`
+            : `Verify ${entry.description}`}
           className="inline-flex items-center justify-center"
           disabled={!canModifyEntries}
           type="button"
           onClick={() => onToggleVerified(entry.id)}
         >
-          <Badge size="sm" variant={entry.verifiedInSurvey ? "success" : "outline"}>
-            {entry.verifiedInSurvey ? <CheckIcon className="size-3" /> : null}
-            {entry.verifiedInSurvey ? "Verified" : "Pending"}
+          <Badge size="sm" variant={entry.verifiedAt ? "success" : "outline"}>
+            {entry.verifiedAt ? <CheckIcon className="size-3" /> : null}
+            {entry.verifiedAt ? "Verified" : "Pending"}
           </Badge>
         </button>
       );
@@ -156,6 +164,18 @@ function renderCell(
       return renderText(entry.projectName);
     case "location":
       return renderText(entry.location);
+    case "calibrationRequirement":
+      return <Badge size="sm" variant="outline">{calibrationRequirementLabel(entry.calibrationRequirement)}</Badge>;
+    case "outToCalibration":
+      return entry.outToCalibration ? <Badge size="sm" variant="warning">Out to cal</Badge> : renderText("No");
+    case "calibrationDueAt":
+      return renderText(entry.calibrationDueAt ?? "");
+    case "calibrationHealth": {
+      const health = deriveCalibrationHealth(entry, localDate);
+      if (!health) return renderText("");
+      const variant = health === "overdue" || health === "missing_due" ? "error" : health === "due_soon" || health === "out_to_cal" ? "warning" : health === "current" ? "success" : "outline";
+      return <Badge size="sm" variant={variant}>{calibrationHealthLabel(health)}</Badge>;
+    }
     case "links": {
       const label = formatLinkLabel(entry.links);
       if (!label) {

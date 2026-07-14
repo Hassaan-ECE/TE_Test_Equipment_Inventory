@@ -220,7 +220,7 @@ function syntheticEntries(size: number): InventoryEntry[] {
       qty: index % 11 === 0 ? null : (index % 23) + 1,
       serialNumber: `SN-${String(id).padStart(5, "0")}`,
       updatedAt: `2026-04-${String((index % 28) + 1).padStart(2, "0")}T12:00:00.000Z`,
-      verifiedInSurvey: index % 3 === 0,
+      verifiedAt: index % 3 === 0 ? "2026-04-25T12:00:00.000Z" : undefined,
     };
   });
 }

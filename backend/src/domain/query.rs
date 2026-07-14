@@ -34,7 +34,7 @@ pub(crate) fn get_inventory_counts(entries: &[InventoryEntry]) -> InventoryCount
     let archive = entries.iter().filter(|entry| entry.archived).count();
     let verified = entries
         .iter()
-        .filter(|entry| entry.verified_in_survey)
+        .filter(|entry| entry.verified_at.is_some())
         .count();
 
     InventoryCounts {
@@ -136,7 +136,7 @@ fn compare_query_entries(
     let order = match sort.column.as_str() {
         "qty" => compare_qty(left.qty, right.qty, &sort.direction),
         "verified" => apply_sort_direction(
-            left.verified_in_survey.cmp(&right.verified_in_survey),
+            left.verified_at.is_some().cmp(&right.verified_at.is_some()),
             &sort.direction,
         ),
         "assetNumber" => {
@@ -223,8 +223,10 @@ mod tests {
 
     #[test]
     fn query_counts_include_archive_and_verified() {
+        let mut verified = test_entry("1", "uuid-1", "A", "One", false, 1.0, false);
+        verified.verified_at = Some("2026-07-13T12:00:00Z".to_string());
         let entries = vec![
-            test_entry("1", "uuid-1", "A", "One", false, 1.0, true),
+            verified,
             test_entry("2", "uuid-2", "B", "Two", true, 1.0, false),
         ];
 
@@ -352,7 +354,17 @@ mod tests {
             lifecycle_status: "active".to_string(),
             working_status: "unknown".to_string(),
             condition: String::new(),
-            verified_in_survey: verified,
+            calibration_requirement: crate::model::CalibrationRequirement::Unknown,
+            out_to_calibration: false,
+            last_calibrated_at: None,
+            calibration_due_at: None,
+            calibration_interval_months: None,
+            certificate_ref: None,
+            calibration_vendor: None,
+            calibration_notes: None,
+            verified_at: verified.then(|| "2026-01-01T00:00:00Z".to_string()),
+            verified_by: None,
+            import_provenance: None,
             archived,
             manual_entry: false,
             picture_path: String::new(),

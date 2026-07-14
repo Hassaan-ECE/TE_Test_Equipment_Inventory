@@ -3,9 +3,10 @@ mod formats;
 
 use std::path::Path;
 
+use chrono::{Local, NaiveDate};
 use rust_xlsxwriter::{Workbook, Worksheet, XlsxError};
 
-use crate::model::{CommandResult, InventoryEntry};
+use crate::model::{derive_calibration_health, CommandResult, InventoryEntry};
 
 use self::{
     columns::{inventory_text, yes_if, InventoryColumn, InventoryField, INVENTORY_COLUMNS},
@@ -20,6 +21,14 @@ pub(crate) fn write_inventory_workbook(
     entries: &[InventoryEntry],
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
+    write_inventory_workbook_for_date(entries, output_path, Local::now().date_naive())
+}
+
+pub(super) fn write_inventory_workbook_for_date(
+    entries: &[InventoryEntry],
+    output_path: impl AsRef<Path>,
+    local_date: NaiveDate,
+) -> CommandResult<ExcelExportStats> {
     let output_path = output_path.as_ref();
     let summary = ExportSummary::from_entries(entries);
     let formats = WorkbookFormats::new();
@@ -33,6 +42,7 @@ pub(crate) fn write_inventory_workbook(
             entries.iter().filter(|entry| !entry.archived),
             summary.inventory_entries,
             &formats,
+            local_date,
         )
         .map_err(export_error)?;
     }
@@ -45,6 +55,7 @@ pub(crate) fn write_inventory_workbook(
             entries.iter().filter(|entry| entry.archived),
             summary.archived_entries,
             &formats,
+            local_date,
         )
         .map_err(export_error)?;
     }
@@ -92,6 +103,7 @@ fn build_inventory_sheet<'a>(
     entries: impl Iterator<Item = &'a InventoryEntry>,
     entry_count: usize,
     formats: &WorkbookFormats,
+    local_date: NaiveDate,
 ) -> Result<(), XlsxError> {
     worksheet.set_name(sheet_name)?;
     worksheet.set_landscape();
@@ -111,7 +123,7 @@ fn build_inventory_sheet<'a>(
 
         for (col, column) in INVENTORY_COLUMNS.iter().enumerate() {
             write_inventory_cell(
-                worksheet, row, col as u16, row_index, entry, column, formats,
+                worksheet, row, col as u16, entry, column, formats, local_date,
             )?;
         }
     }
@@ -130,11 +142,12 @@ fn write_inventory_cell(
     worksheet: &mut Worksheet,
     row: u32,
     col: u16,
-    row_index: usize,
     entry: &InventoryEntry,
     column: &InventoryColumn,
     formats: &WorkbookFormats,
+    local_date: NaiveDate,
 ) -> Result<(), XlsxError> {
+    let row_index = row.saturating_sub(1) as usize;
     let format = formats.format_for(column, entry, row_index);
 
     match column.field {
@@ -145,13 +158,26 @@ fn write_inventory_cell(
                 worksheet.write_string_with_format(row, col, "", format)?;
             }
         }
-        InventoryField::Verified => {
+        InventoryField::CalibrationIntervalMonths => {
+            if let Some(months) = entry.calibration_interval_months {
+                worksheet.write_number_with_format(row, col, f64::from(months), format)?;
+            } else {
+                worksheet.write_string_with_format(row, col, "", format)?;
+            }
+        }
+        InventoryField::OutToCalibration => {
             worksheet.write_string_with_format(
                 row,
                 col,
-                yes_if(entry.verified_in_survey),
+                yes_if(entry.out_to_calibration),
                 format,
             )?;
+        }
+        InventoryField::CalibrationHealth => {
+            let health = derive_calibration_health(entry, local_date, 30)
+                .map(|value| value.as_str())
+                .unwrap_or("");
+            worksheet.write_string_with_format(row, col, health, format)?;
         }
         InventoryField::Archived => {
             worksheet.write_string_with_format(row, col, yes_if(entry.archived), format)?;

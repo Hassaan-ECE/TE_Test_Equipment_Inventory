@@ -1,7 +1,8 @@
 # TE Test Equipment Inventory — Decision Register
 
 **Status:** Authoritative planning record  
-**Last updated:** 2026-07-13  
+**Last updated:** 2026-07-14
+
 **Owner:** TE Test Equipment Inventory project owner
 
 This file is the source of truth for product and engineering decisions. If another planning document conflicts with this register, update that document and follow this register.
@@ -46,20 +47,36 @@ The supporting documents remain useful but advisory:
 | D-013 | Treat sync artifacts as synchronization, not backup. | Define retention and restore procedures, run a restore drill, back up final cutover inputs, and retain a documented Python read-only rollback window. |
 | D-014 | Replace the timeless verification boolean with `verifiedAt`; support `verifiedBy` if operator attribution is adopted. | Location verification has an age and cannot remain permanently true without context. |
 | D-015 | Product identity on this PC is **TE Test Equipment Inventory** (`com.te.test.equipment.inventory`), not the earlier planning name “TE Lab Equipment Inventory”. | Keep folder, display name, Tauri id, preference keys, and updater identity under the Test Equipment names unless the owner deliberately renames before first install. |
-| D-016 | Working application tree is the ME-family scaffold already present at `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory` (partial rebrand only). | Continue domain work in this tree. Formal base comparison (O-002) still records sibling SHAs; do not re-scaffold from scratch unless a deliberate reset is approved. |
+| D-016 | Working application tree is the ME-family scaffold already present at `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory` (partial rebrand only). | Continue domain work in this tree. D-018 records the sibling SHAs; do not re-scaffold from scratch unless a deliberate reset is approved. |
+| D-017 | For v1, store current-state calibration fields on equipment and compute derived health; do not implement a `CalibrationEvent` history store. | V1 is a reminder/current-state application, not a calibration audit ledger. Editing current calibration values overwrites their prior state. Keep stable equipment UUID identity and current-state field semantics so a future event entity can reference equipment without redefining it. |
+| D-018 | Keep the existing ME-family application tree selected by D-016. Record its lineage as ME Inventory at `e092c73`; TE Parts at `e444389` remains a read-only sibling reference. | O-002 is resolved; continue hardening this scaffold rather than re-scaffolding or porting the application wholesale from TE Parts. |
+| D-019 | Defer managed certificate and picture/media storage for v1. Keep optional free-text certificate/reference and vendor-notes fields when low cost, plus the scaffold's existing picture-path field where present. | Do not build a shared media vault or claim that local picture paths are multi-machine durable. A later attachment model can replace or supplement these simple references. |
+| D-020 | Retain the current shared-root sketch, but keep production shared synchronization configuration-gated under D-012. | Do not enable production shared mode for v1. The final department-owned root, writer ACLs, backup ownership, and two-machine proof remain release/operations gates; synchronization artifacts are not backups under D-013. |
+| D-021 | Require `verifiedAt`; make `verifiedBy` and calibration operator optional free-text attribution. | Verification must carry a timestamp. Store optional attribution where low cost, but do not require login, authentication, or operator identity to use the v1 UI. |
+| D-022 | Treat an explicit calibration due date as the source of truth. `calibrationIntervalMonths` is optional and may only suggest a next due date. | Never calculate and overwrite a user-entered due date automatically. Applying a suggested due date requires an explicit user/import action, and derived health always uses the resulting explicit due date. |
+| D-023 | Use **Reference only** for `reference_only` and **Not required** for `not_required` in user-facing copy. | Keep the two requirement states distinct in filters, badges, forms, imports, and exports. |
+| D-025 | Aggregate profiling of the supplied live export is accepted for importer compatibility, using only the `Inventory` sheet and mapping version `te-test-equipment-v2`. | The empty-database dry run is `573 total / 515 inserted / 0 matched / 50 conflicted / 8 rejected / 0 ignored`, so commit remains blocked until the 50 identity conflicts and eight invalid-date rows are corrected. Supporting sheets are excluded by selection, not counted as ignored inventory rows. |
 
-## Open decisions and required inputs
+## Superseded decisions
 
-| ID | Open item | Needed before | Owner/input |
-|----|-----------|---------------|-------------|
-| O-001 | Store `CalibrationEvent` history in v1, or explicitly ship a current-state reminder board without history. | Domain/schema freeze | Product owner |
-| O-002 | Formally record base comparison outcome. Working tree is already ME-scaffolded; sibling refs on this PC: ME `e092c73` (`ME_Inventory_App_Tauri_v2`), TE Parts `e444389` (`TE_Component_Inventory`). Confirm keep-ME vs port-from-TE before large domain edits if parity gaps appear. | Large domain/sync rework | Engineering |
-| O-003 | Choose certificate/picture handling: managed shared media, durable UNC/URL references, or defer for v1. | Domain/schema freeze | Product owner + IT if shared storage is used |
-| O-004 | Select a durable lab/department-owned shared root and confirm writer ACLs, backup ownership, and naming. | Production shared-sync enablement | Lab operations / IT |
-| O-005 | Decide whether `verifiedBy` and calibration operator identity are required. | Domain/schema freeze | Product owner |
-| O-006 | Decide whether due dates are entered explicitly only or may also be calculated from `calibrationIntervalMonths`. | Calibration workflow implementation | Product owner |
-| O-007 | Confirm user-facing language for `reference_only` versus `not_required`. | UI copy freeze | Product owner / lab users |
-| O-008 | Obtain and profile a representative live Python Excel export. | Model freeze and importer implementation | Lab data owner |
+| ID | Status | Replacement |
+|----|--------|-------------|
+| D-024 | **Superseded.** It recorded that no live export was present and allowed synthetic-only importer work. | D-025 records the live aggregate profile and blocking dry-run evidence. |
+
+## Resolved provisional v1 inputs
+
+No item from O-001 through O-008 remains an open blocker for the initial v1 implementation. The owner accepted the provisional defaults above; new evidence may replace them only through the decision-change process.
+
+| Former open item | Resolution |
+|------------------|------------|
+| O-001 | D-017 — current-state calibration; history deferred |
+| O-002 | D-018 — retain the ME-family scaffold and record sibling SHAs |
+| O-003 | D-019 — managed certificate/media storage deferred |
+| O-004 | D-020 — shared-root sketch retained; production sync remains gated |
+| O-005 | D-021 — timestamp required; operator fields optional free text |
+| O-006 | D-022 — explicit due date is authoritative; interval only suggests |
+| O-007 | D-023 — user-facing labels accepted |
+| O-008 | D-025 — live aggregate profile available; blocking source corrections remain required before commit |
 
 ## Deferred for v1
 
@@ -69,6 +86,10 @@ The supporting documents remain useful but advisory:
 | Estimated age, age basis, acquired date | Not central to calibration, identity, or location. |
 | Quantity and project name | Rarely useful for individually identified instruments. |
 | Full Python master/survey dual-workbook pipeline | Cutover uses the live export plus reviewed supplemental workbooks. |
+| Full `CalibrationEvent` history | V1 deliberately keeps only current calibration state; it does not provide an audit ledger. |
+| Managed certificate/media vault | Optional simple references remain; shared managed attachments need a later design and operations decision. |
+| Production shared-sync enablement | Keep shared mode configuration-gated until the final root, ACLs, backup owner, restore procedure, and real two-machine proof are confirmed. |
+| Live-data correction and cutover validation | Aggregate profiling is complete, but 50 identity-conflicted rows and eight invalid-date rows still block commit; protected import/restore rehearsal and cutover authorization remain outstanding. |
 | Dashboard-heavy reporting | Derived health filters and counts are sufficient for initial use. |
 | TanStack Table migration | Existing sibling-app table patterns are adequate at the expected scale. |
 | Reicon migration | Keep sibling-app icon consistency; revisit only as a deliberate family-wide change. |
@@ -80,4 +101,3 @@ The supporting documents remain useful but advisory:
 3. If replacing an accepted decision, mark the old entry **Superseded** and reference the new ID.
 4. Reconcile README, PROJECT_DISCUSSION, implementation docs, tests, and examples in the same change.
 5. Do not represent an **Open** item as an implementation default unless the decision register is updated.
-

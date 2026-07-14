@@ -50,7 +50,7 @@ export function useDesktopInventory({ announceStatus }: UseDesktopInventoryOptio
       ...current,
       available: false,
       canModify: true,
-      enabled: true,
+      enabled: false,
       hasLocalOnlyChanges: current.hasLocalOnlyChanges,
       message,
       mutationMode: "local",
@@ -89,7 +89,7 @@ export function useDesktopInventory({ announceStatus }: UseDesktopInventoryOptio
           setEntries([]);
           setDataSource("desktop");
           markSharedUnavailable("Inventory database unavailable. Restart the app or check app data permissions.");
-          announceStatus("Could not load the ME Inventory database.");
+          announceStatus("Could not load the TE Test Equipment Inventory database.");
         }
         return null;
       } finally {
@@ -228,6 +228,7 @@ export function useDesktopInventory({ announceStatus }: UseDesktopInventoryOptio
     dataSource,
     entries,
     isLoading,
+    refreshDesktopEntries,
     scheduleDesktopSync,
     setEntries,
     setSharedStatus,

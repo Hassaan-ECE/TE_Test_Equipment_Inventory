@@ -1,11 +1,16 @@
 import type { FilterState, InventoryEntry, InventoryScope } from "@/features/inventory/types";
 
+import { deriveCalibrationHealth, getLocalDateString, isValidDateOnly } from "./calibrationHealth";
+
 export const DEFAULT_FILTERS: FilterState = {
   assetNumber: "",
   manufacturer: "",
   model: "",
   description: "",
   location: "",
+  calibrationRequirement: "all",
+  calibrationHealth: "all",
+  dueWindow: "all",
 };
 
 export const INVENTORY_GLOBAL_SEARCH_FIELDS = [
@@ -22,6 +27,13 @@ export const INVENTORY_GLOBAL_SEARCH_FIELDS = [
   "lifecycleStatus",
   "workingStatus",
   "condition",
+  "calibrationRequirement",
+  "lastCalibratedAt",
+  "calibrationDueAt",
+  "certificateRef",
+  "calibrationVendor",
+  "calibrationNotes",
+  "verifiedBy",
 ] as const satisfies readonly (keyof InventoryEntry)[];
 
 export type InventoryGlobalSearchField = (typeof INVENTORY_GLOBAL_SEARCH_FIELDS)[number];
@@ -32,7 +44,10 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.manufacturer.trim().length > 0 ||
     filters.model.trim().length > 0 ||
     filters.description.trim().length > 0 ||
-    filters.location.trim().length > 0
+    filters.location.trim().length > 0 ||
+    filters.calibrationRequirement !== "all" ||
+    filters.calibrationHealth !== "all" ||
+    filters.dueWindow !== "all"
   );
 }
 
@@ -41,6 +56,7 @@ export function filterEntries(
   scope: InventoryScope,
   query: string,
   filters: FilterState,
+  localDate = getLocalDateString(),
 ): InventoryEntry[] {
   const normalizedQuery = query.trim().toLowerCase();
   const assetNumberFilter = filters.assetNumber.trim().toLowerCase();
@@ -54,6 +70,20 @@ export function filterEntries(
       return false;
     }
     if (scope === "archive" && !entry.archived) {
+      return false;
+    }
+
+    if (
+      filters.calibrationRequirement !== "all" &&
+      entry.calibrationRequirement !== filters.calibrationRequirement
+    ) {
+      return false;
+    }
+    const health = deriveCalibrationHealth(entry, localDate);
+    if (filters.calibrationHealth !== "all" && health !== filters.calibrationHealth) {
+      return false;
+    }
+    if (!matchesDueWindow(entry, filters.dueWindow, localDate, health)) {
       return false;
     }
 
@@ -77,7 +107,36 @@ export function filterEntries(
 }
 
 export function getEntrySearchValues(entry: InventoryEntry): Array<string | undefined> {
-  return INVENTORY_GLOBAL_SEARCH_FIELDS.map((field) => entry[field]);
+  return [
+    ...INVENTORY_GLOBAL_SEARCH_FIELDS.map((field) => entry[field] as string | undefined),
+    entry.outToCalibration ? "out to calibration" : undefined,
+    entry.calibrationIntervalMonths?.toString(),
+  ];
+}
+
+function matchesDueWindow(
+  entry: InventoryEntry,
+  dueWindow: FilterState["dueWindow"],
+  localDate: string,
+  health: ReturnType<typeof deriveCalibrationHealth>,
+): boolean {
+  if (dueWindow === "all") {
+    return true;
+  }
+  if (dueWindow === "overdue") {
+    return health === "overdue";
+  }
+  if (dueWindow === "missing") {
+    return health === "missing_due";
+  }
+  if (!entry.calibrationDueAt || !isValidDateOnly(entry.calibrationDueAt) || !isValidDateOnly(localDate)) {
+    return false;
+  }
+
+  const days = dueWindow === "next30" ? 30 : dueWindow === "next60" ? 60 : 90;
+  const due = Date.parse(`${entry.calibrationDueAt}T00:00:00Z`);
+  const today = Date.parse(`${localDate}T00:00:00Z`);
+  return due >= today && due <= today + days * 86_400_000;
 }
 
 function includesNormalizedFilter(value: string, normalizedFilter: string): boolean {

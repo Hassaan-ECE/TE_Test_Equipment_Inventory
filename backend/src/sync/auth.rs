@@ -5,14 +5,14 @@ use super::{
 #[cfg(test)]
 use std::cell::RefCell;
 
-const HMAC_KEY_ENV: &str = "ME_INVENTORY_SYNC_HMAC_KEY";
+const HMAC_KEY_ENV: &str = "TE_TEST_EQUIPMENT_SYNC_HMAC_KEY";
 const HMAC_PREFIX: &str = "hmac-sha256:";
 const MIN_HMAC_KEY_BYTES: usize = 16;
 const SHA256_BLOCK_BYTES: usize = 64;
 
 #[cfg(test)]
 thread_local! {
-    static TEST_HMAC_KEY: RefCell<Option<Option<String>>> = RefCell::new(None);
+    static TEST_HMAC_KEY: RefCell<Option<Option<String>>> = const { RefCell::new(None) };
 }
 
 #[cfg(test)]

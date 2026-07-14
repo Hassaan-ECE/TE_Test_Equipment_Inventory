@@ -8,6 +8,8 @@ import {
   CONNECTED_SHARED_STATUS,
   LOCAL_SHARED_STATUS,
   TEST_DB_PATH,
+  buildTestEntry,
+  createDesktopBridge,
 } from "./inventory-shell/helpers";
 
 describe("InventoryShell mutations", () => {
@@ -20,7 +22,7 @@ describe("InventoryShell mutations", () => {
   it("keeps desktop editing enabled when mutations are local-only", async () => {
     const user = userEvent.setup();
     let desktopEntries: InventoryEntry[] = [
-      {
+      buildTestEntry({
         id: "201",
         assetNumber: "ME-201",
         qty: 1,
@@ -33,10 +35,9 @@ describe("InventoryShell mutations", () => {
         notes: "",
         lifecycleStatus: "active",
         workingStatus: "working",
-        verifiedInSurvey: false,
         archived: false,
         updatedAt: "2026-04-23 10:00:00",
-      },
+      }),
     ];
     const createdEntry: InventoryEntry = {
       ...desktopEntries[0],
@@ -44,7 +45,6 @@ describe("InventoryShell mutations", () => {
       assetNumber: "",
       description: "Local-only saved entry",
       manufacturer: "Local Maker",
-      verifiedInSurvey: false,
     };
     const createEntry = vi.fn().mockImplementation(async () => {
       desktopEntries = [createdEntry, ...desktopEntries];
@@ -69,7 +69,12 @@ describe("InventoryShell mutations", () => {
         shared: LOCAL_SHARED_STATUS,
       })),
       toggleVerifiedEntry: vi.fn().mockImplementation(async (entryId: string, nextVerified: boolean) => {
-        const updatedEntry = { ...desktopEntries.find((entry) => entry.id === entryId)!, verifiedInSurvey: nextVerified };
+        const currentEntry = desktopEntries.find((entry) => entry.id === entryId)!;
+        const updatedEntry = {
+          ...currentEntry,
+          verifiedAt: nextVerified ? "2026-07-13T12:00:00Z" : undefined,
+          verifiedBy: nextVerified ? currentEntry.verifiedBy : undefined,
+        };
         desktopEntries = desktopEntries.map((entry) => (entry.id === entryId ? updatedEntry : entry));
         return {
           entry: updatedEntry,
@@ -85,7 +90,10 @@ describe("InventoryShell mutations", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/ME_Inventory_Export.xlsx" }),
+      pickImportFile: vi.fn().mockResolvedValue(null),
+      previewImport: vi.fn(),
+      commitImport: vi.fn(),
+      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     };
 
     render(<InventoryShell />);
@@ -105,13 +113,13 @@ describe("InventoryShell mutations", () => {
     expect(createEntry).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Entry added locally.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Toggle verified for Local-only saved entry/i }));
+    await user.click(screen.getByRole("button", { name: /Verify Local-only saved entry/i }));
     expect(await screen.findByText("Verified state updated locally.")).toBeInTheDocument();
   });
 
   it("uses the mutation result message when shared status changes during a save", async () => {
     const user = userEvent.setup();
-    const existingEntry: InventoryEntry = {
+    const existingEntry: InventoryEntry = buildTestEntry({
       id: "601",
       assetNumber: "ME-601",
       qty: 1,
@@ -124,10 +132,9 @@ describe("InventoryShell mutations", () => {
       notes: "",
       lifecycleStatus: "active",
       workingStatus: "working",
-      verifiedInSurvey: false,
       archived: false,
       updatedAt: "2026-04-23 10:00:00",
-    };
+    });
     const createdEntry: InventoryEntry = {
       ...existingEntry,
       id: "602",
@@ -161,7 +168,10 @@ describe("InventoryShell mutations", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/ME_Inventory_Export.xlsx" }),
+      pickImportFile: vi.fn().mockResolvedValue(null),
+      previewImport: vi.fn(),
+      commitImport: vi.fn(),
+      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     };
 
     render(<InventoryShell />);
@@ -173,6 +183,35 @@ describe("InventoryShell mutations", () => {
     await user.click(screen.getByRole("button", { name: "Save Entry" }));
 
     expect(await screen.findByText("Entry added locally.")).toBeInTheDocument();
-    expect(screen.queryByText("Entry added to the ME Inventory database.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Entry added to the TE Test Equipment Inventory database.")).not.toBeInTheDocument();
+  });
+
+  it("passes the next verification boolean based only on verifiedAt", async () => {
+    const user = userEvent.setup();
+    let entry = buildTestEntry({ id: "verify-1", description: "Timestamp meter", verifiedAt: undefined });
+    const toggleVerifiedEntry = vi.fn(async (_entryId: string, nextVerified: boolean) => {
+      entry = { ...entry, verifiedAt: nextVerified ? "2026-07-13T12:00:00Z" : undefined, verifiedBy: nextVerified ? "Avery" : undefined };
+      return { entry, message: "Verification updated.", mutationMode: "local" as const };
+    });
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue({ dbPath: TEST_DB_PATH, entries: [entry], shared: LOCAL_SHARED_STATUS }),
+      toggleVerifiedEntry,
+    });
+    render(<InventoryShell />);
+
+    await user.click(await screen.findByRole("button", { name: /Verify Timestamp meter/i }));
+    expect(toggleVerifiedEntry).toHaveBeenLastCalledWith("verify-1", true);
+    await user.click(screen.getByRole("button", { name: /Clear verification for Timestamp meter/i }));
+    expect(toggleVerifiedEntry).toHaveBeenLastCalledWith("verify-1", false);
+  });
+
+  it("sets a local RFC3339 verification timestamp and clears timestamp plus verifier", async () => {
+    const user = userEvent.setup();
+    render(<InventoryShell />);
+
+    await user.click(screen.getByRole("button", { name: /Verify Long handle ratchet/i }));
+    expect(screen.getByRole("button", { name: /Clear verification for Long handle ratchet, verified \d{4}-\d{2}-\d{2}T/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Clear verification for Long handle ratchet/i }));
+    expect(screen.getByRole("button", { name: /Verify Long handle ratchet/i })).toBeInTheDocument();
   });
 });

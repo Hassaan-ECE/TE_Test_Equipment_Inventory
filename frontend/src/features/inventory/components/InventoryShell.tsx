@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { APP_DISPLAY_NAME } from "@/app/branding";
-import { ColumnMenu } from "@/features/inventory/components/ColumnMenu";
 import { DeleteConfirmationDialog } from "@/features/inventory/components/shell/DeleteConfirmationDialog";
 import { EmptyResults } from "@/features/inventory/components/EmptyResults";
-import { FilterPanel } from "@/features/inventory/components/FilterPanel";
 import { InventoryHeader } from "@/features/inventory/components/InventoryHeader";
 import { EntryContextMenu, type EntryContextAction } from "@/features/inventory/components/EntryContextMenu";
 import { EntryDialog } from "@/features/inventory/components/EntryDialog";
@@ -13,7 +11,6 @@ import { SearchCard } from "@/features/inventory/components/SearchCard";
 import { StatusStrip } from "@/features/inventory/components/StatusStrip";
 import { buildDefaultStatusMessage } from "@/features/inventory/components/shell/helpers";
 import { useDesktopInventory } from "@/features/inventory/components/shell/useDesktopInventory";
-import { useDesktopUpdates } from "@/features/inventory/components/shell/useDesktopUpdates";
 import { useInventoryEntryMutations } from "@/features/inventory/components/shell/useInventoryEntryMutations";
 import { useInventoryExportActions } from "@/features/inventory/components/shell/useInventoryExportActions";
 import { useInventoryExternalActions } from "@/features/inventory/components/shell/useInventoryExternalActions";
@@ -41,7 +38,6 @@ export function InventoryShell() {
     setSharedStatus,
     sharedStatus,
   } = useDesktopInventory({ announceStatus });
-  const { handleUpdateAction, updateState } = useDesktopUpdates({ announceStatus });
   const {
     colorRows,
     columnVisibility,
@@ -62,6 +58,7 @@ export function InventoryShell() {
     entriesById,
     resultsLabel,
     visibleColumns,
+    localDate,
   } = useInventoryViewModel({
     columnVisibility,
     entries,
@@ -101,7 +98,7 @@ export function InventoryShell() {
     entriesById,
   });
   const statusMessage = isLoading
-    ? "Loading ME inventory database..."
+    ? "Loading TE Test Equipment Inventory database..."
     : statusOverride ?? buildDefaultStatusMessage(counts.total, counts.verified, dataSource, sharedStatus);
   const dialogEntry = dialogState?.mode === "edit" ? entriesById.get(dialogState.entryId ?? "") ?? null : null;
   const contextEntry = contextMenu ? entriesById.get(contextMenu.entryId) ?? null : null;
@@ -200,35 +197,32 @@ export function InventoryShell() {
           onScopeChange={setScope}
           onThemeToggle={handleThemeToggle}
           scope={scope}
+          sharedStatus={sharedStatus}
           theme={theme}
-          updateState={updateState}
-          onUpdateAction={() => {
-            void handleUpdateAction();
-          }}
         />
 
-        <div className="flex min-h-0 flex-1 overflow-hidden px-3 py-4 sm:px-5">
-          <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden px-2 py-1.5 sm:px-3">
+          <div className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden">
             <SearchCard
               colorRows={colorRows}
-              columnMenu={
-                <ColumnMenu columns={INVENTORY_COLUMNS} onToggleColumn={handleToggleColumn} visibility={columnVisibility} />
-              }
+              columns={INVENTORY_COLUMNS}
+              columnVisibility={columnVisibility}
+              filters={filters}
               filtersOpen={filtersOpen}
               onColorRowsChange={setColorRows}
+              onFilterChange={handleFilterChange}
+              onFiltersClear={handleClearFilters}
               onFiltersToggle={() => setFiltersOpen((current) => !current)}
               onQueryChange={setQuery}
+              onToggleColumn={handleToggleColumn}
               query={query}
-              resultsLabel={resultsLabel}
               scope={scope}
             />
 
-            {filtersOpen ? <FilterPanel filters={filters} onChange={handleFilterChange} onClear={handleClearFilters} /> : null}
-
             <div className="min-h-0 flex-1 overflow-hidden">
               {isLoading ? (
-                <section className="flex h-full min-h-0 flex-1 items-center justify-center rounded-3xl border border-border/70 bg-card/80 shadow-sm">
-                  <div className="text-sm text-muted-foreground">Loading ME inventory database...</div>
+                <section className="flex h-full min-h-0 flex-1 items-center justify-center rounded-xl border border-border/70 bg-card/80 shadow-sm">
+                  <div className="text-sm text-muted-foreground">Loading TE Test Equipment Inventory database...</div>
                 </section>
               ) : displayEntries.length > 0 ? (
                 <InventoryTable
@@ -247,6 +241,7 @@ export function InventoryShell() {
                   }}
                   entries={displayEntries}
                   sortState={sortState}
+                  localDate={localDate}
                 />
               ) : (
                 <EmptyResults query={query} scope={scope} onAddEntry={handleAddEntry} />
@@ -255,7 +250,7 @@ export function InventoryShell() {
           </div>
         </div>
 
-        <StatusStrip message={statusMessage} />
+        <StatusStrip counts={counts} message={statusMessage} resultsLabel={resultsLabel} />
       </main>
 
       {contextMenu && contextEntry ? (

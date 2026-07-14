@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn missing_ops_dir_is_ignored() {
         let watcher = SharedSyncWatcher::new();
-        let missing_path = std::env::temp_dir().join("me-inventory-missing-ops");
+        let missing_path = std::env::temp_dir().join("te-test-equipment-inventory-missing-ops");
 
         watcher
             .ensure_watching_with_emit(&missing_path, || {})
@@ -154,7 +154,7 @@ mod tests {
     fn watcher_starts_after_ops_dir_becomes_available() {
         let watcher = SharedSyncWatcher::new();
         let ops_dir = std::env::temp_dir().join(format!(
-            "me-inventory-ops-{}",
+            "te-test-equipment-inventory-ops-{}",
             uuid::Uuid::new_v4().simple()
         ));
 

@@ -324,10 +324,7 @@ pub(super) fn backup_existing_file(
     let backup_path = paths.backups_dir.join(format!(
         "{}-{}-{}.json",
         prefix,
-        now_timestamp()
-            .replace(':', "-")
-            .replace('.', "-")
-            .replace('Z', "z"),
+        now_timestamp().replace([':', '.'], "-").replace('Z', "z"),
         Uuid::new_v4().simple()
     ));
     fs::rename(source, &backup_path)?;

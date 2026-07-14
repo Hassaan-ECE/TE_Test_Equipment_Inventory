@@ -36,7 +36,26 @@ pub(crate) fn update_entry_from_input_fields(
             "lifecycle_status" => entry.lifecycle_status.clone_from(&input.lifecycle_status),
             "working_status" => entry.working_status.clone_from(&input.working_status),
             "condition" => entry.condition.clone_from(&input.condition),
-            "verified_in_survey" => entry.verified_in_survey = input.verified_in_survey,
+            "calibration_requirement" => {
+                entry.calibration_requirement = input.calibration_requirement
+            }
+            "out_to_calibration" => entry.out_to_calibration = input.out_to_calibration,
+            "last_calibrated_at" => entry
+                .last_calibrated_at
+                .clone_from(&input.last_calibrated_at),
+            "calibration_due_at" => entry
+                .calibration_due_at
+                .clone_from(&input.calibration_due_at),
+            "calibration_interval_months" => {
+                entry.calibration_interval_months = input.calibration_interval_months
+            }
+            "certificate_ref" => entry.certificate_ref.clone_from(&input.certificate_ref),
+            "calibration_vendor" => entry
+                .calibration_vendor
+                .clone_from(&input.calibration_vendor),
+            "calibration_notes" => entry.calibration_notes.clone_from(&input.calibration_notes),
+            "verified_at" => entry.verified_at.clone_from(&input.verified_at),
+            "verified_by" => entry.verified_by.clone_from(&input.verified_by),
             "archived" => entry.archived = input.archived,
             "picture_path" => entry.picture_path = input.picture_path.clone().unwrap_or_default(),
             _ => {}
@@ -92,8 +111,35 @@ pub(crate) fn changed_entry_fields(before: &InventoryEntry, after: &InventoryEnt
     if before.condition != after.condition {
         fields.push("condition".to_string());
     }
-    if before.verified_in_survey != after.verified_in_survey {
-        fields.push("verified_in_survey".to_string());
+    if before.calibration_requirement != after.calibration_requirement {
+        fields.push("calibration_requirement".to_string());
+    }
+    if before.out_to_calibration != after.out_to_calibration {
+        fields.push("out_to_calibration".to_string());
+    }
+    if before.last_calibrated_at != after.last_calibrated_at {
+        fields.push("last_calibrated_at".to_string());
+    }
+    if before.calibration_due_at != after.calibration_due_at {
+        fields.push("calibration_due_at".to_string());
+    }
+    if before.calibration_interval_months != after.calibration_interval_months {
+        fields.push("calibration_interval_months".to_string());
+    }
+    if before.certificate_ref != after.certificate_ref {
+        fields.push("certificate_ref".to_string());
+    }
+    if before.calibration_vendor != after.calibration_vendor {
+        fields.push("calibration_vendor".to_string());
+    }
+    if before.calibration_notes != after.calibration_notes {
+        fields.push("calibration_notes".to_string());
+    }
+    if before.verified_at != after.verified_at {
+        fields.push("verified_at".to_string());
+    }
+    if before.verified_by != after.verified_by {
+        fields.push("verified_by".to_string());
     }
     if before.archived != after.archived {
         fields.push("archived".to_string());
@@ -113,10 +159,99 @@ fn normalize_changed_entry_field(field: &str) -> String {
         "assignedTo" => "assigned_to".to_string(),
         "lifecycleStatus" => "lifecycle_status".to_string(),
         "workingStatus" => "working_status".to_string(),
-        "verifiedInSurvey" => "verified_in_survey".to_string(),
+        "calibrationRequirement" => "calibration_requirement".to_string(),
+        "outToCalibration" => "out_to_calibration".to_string(),
+        "lastCalibratedAt" => "last_calibrated_at".to_string(),
+        "calibrationDueAt" => "calibration_due_at".to_string(),
+        "calibrationIntervalMonths" => "calibration_interval_months".to_string(),
+        "certificateRef" => "certificate_ref".to_string(),
+        "calibrationVendor" => "calibration_vendor".to_string(),
+        "calibrationNotes" => "calibration_notes".to_string(),
+        "verifiedAt" | "verifiedInSurvey" => "verified_at".to_string(),
+        "verifiedBy" => "verified_by".to_string(),
         "picturePath" => "picture_path".to_string(),
         "databaseId" | "database_id" | "entryUuid" | "entry_uuid" | "createdAt" | "created_at"
-        | "updatedAt" | "updated_at" | "id" => String::new(),
+        | "updatedAt" | "updated_at" | "importProvenance" | "import_provenance" | "id" => {
+            String::new()
+        }
         other => other.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{
+        create_entry_from_input, normalize_entry_input, CalibrationRequirement, ImportProvenance,
+    };
+
+    #[test]
+    fn calibration_and_verification_fields_are_selective_and_aliases_are_canonicalized() {
+        let before = create_entry_from_input(
+            1,
+            normalize_entry_input(InventoryEntryInput {
+                description: "Meter".to_string(),
+                ..InventoryEntryInput::default()
+            }),
+        );
+        let mut after = before.clone();
+        after.calibration_requirement = CalibrationRequirement::Required;
+        after.calibration_due_at = Some("2027-07-13".to_string());
+        after.verified_at = Some("2026-07-13T12:00:00Z".to_string());
+        after.verified_by = Some("Taylor".to_string());
+
+        assert_eq!(
+            changed_entry_fields(&before, &after),
+            vec![
+                "calibration_requirement".to_string(),
+                "calibration_due_at".to_string(),
+                "verified_at".to_string(),
+                "verified_by".to_string(),
+            ]
+        );
+        assert_eq!(
+            normalize_changed_entry_fields(vec![
+                "calibrationRequirement".to_string(),
+                "calibrationDueAt".to_string(),
+                "verifiedAt".to_string(),
+                "verifiedBy".to_string(),
+            ]),
+            vec![
+                "calibration_due_at".to_string(),
+                "calibration_requirement".to_string(),
+                "verified_at".to_string(),
+                "verified_by".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn field_scoped_update_preserves_import_provenance() {
+        let mut before = create_entry_from_input(
+            1,
+            normalize_entry_input(InventoryEntryInput {
+                description: "Meter".to_string(),
+                ..InventoryEntryInput::default()
+            }),
+        );
+        before.import_provenance = Some(ImportProvenance {
+            batch_id: "sha256:batch".to_string(),
+            source_filename: "synthetic.csv".to_string(),
+            source_sheet: None,
+            source_row: 2,
+            original_id: None,
+            original_asset_number: Some("TE-1".to_string()),
+            original_serial_number: None,
+        });
+        let input = normalize_entry_input(InventoryEntryInput {
+            description: "Edited meter".to_string(),
+            ..InventoryEntryInput::default()
+        });
+
+        let after =
+            update_entry_from_input_fields(before.clone(), &input, &["description".to_string()]);
+
+        assert_eq!(after.description, "Edited meter");
+        assert_eq!(after.import_provenance, before.import_provenance);
     }
 }

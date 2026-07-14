@@ -1,123 +1,113 @@
 # Session handoff — TE Test Equipment Inventory
 
-**Last updated:** 2026-07-13  
-**Purpose:** Pick up work in a **new chat** opened on this folder without re-deriving project context.
+**Last updated:** 2026-07-14
 
-## Open this workspace
+**State:** v0.1 implementation candidate; not a published production release or completed lab cutover
+
+## Workspace and authority
+
+Open only:
 
 ```text
 C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
 ```
 
-Do **not** treat these as the active app tree on this PC:
+`C:\Projects\Active\TE_Lab_Equipment_Inventory` is an old planning/other-PC tree, not the app. Planning authority is [planning/DECISIONS.md](planning/DECISIONS.md). Read this handoff, the decision register, [../README.md](../README.md), and [../AGENTS.md](../AGENTS.md) before changing code.
 
-| Path | Role |
-|------|------|
-| `C:\Projects\Active\TE_Lab_Equipment_Inventory` | Other-PC / planning shell; broken git; skill leftovers — **not** the app |
-| `https://github.com/Hassaan-ECE/TE_Lab_Equipment_Inventory` | Original **docs-only** planning repo (Lab naming) — content now lives under `docs/planning/` here |
+The repository is initialized locally with baseline commits `7a96a9f` and `bf8baee`. It has no configured remote. Do not create or push a remote unless the owner asks.
 
-## What this project is
+Historical/read-only references:
 
-Modern **Tauri 2 + React + TypeScript + Bun + Rust + FeOxDB** desktop app to **replace the Python TE test/lab equipment inventory**, focused on:
+| Reference | Location | Revision |
+|-----------|----------|----------|
+| ME Inventory scaffold lineage | `C:\Projects\Active\Inventory_Apps\ME\ME_Inventory` | `e092c73` |
+| TE Parts sibling | `C:\Projects\Active\Inventory_Apps\TE\TE_Parts_Inventory` | `e444389` |
 
-1. **Calibration** (requirement + workflow + derived health)  
-2. **Equipment identity** (asset, serial, maker, model, …)  
-3. **Location**
-
-Same UI/UX family as TE Parts (Components) and ME Inventory — **not** a Python GUI port, **not** merged with TE components.
-
-## Current code state (verified 2026-07-13)
-
-| Area | State |
-|------|--------|
-| Scaffold | Full ME-family inventory app tree (`frontend/`, `backend/`, sync, tests) |
-| Rebrand | **Partial** — name/id mostly Test Equipment |
-| Domain model | Still **generic ME inventory** — no calibration fields yet |
-| Verified field | Still `verified_in_survey` bool — planning wants `verifiedAt` (+ optional `verifiedBy`) |
-| Updater / README leftovers | Still point at **ME** releases / `com.me.inventory` in places |
-| Git | **No `.git`** in this folder yet (init/link when ready) |
-| `node_modules` / `backend/target` | Not fully present like TE Parts may be; expect install/build as needed |
-
-### Identity (accepted)
+## Stable identity
 
 | Item | Value |
-|------|--------|
-| Display name | TE Test Equipment Inventory |
-| Package | `te-test-equipment-inventory` @ `0.1.0` |
+|------|-------|
+| Display | TE Test Equipment Inventory |
+| Package | `te-test-equipment-inventory` version `0.1.0` |
 | Tauri id | `com.te.test.equipment.inventory` |
-| Local DB path (decision) | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
-| Shared root sketch | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment` |
+| Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 
-### Sibling apps on this PC
+Local AppData is implemented. When the Local target is absent, startup copies the same identifier's Roaming `inventory.feox` and preserves the source; an existing Local target wins. The inherited updater runtime, dependencies, permissions, endpoint/signing configuration, and update UI are removed or disabled, and updater artifacts are off.
 
-| App | Path | Git origin @ HEAD (approx) |
-|-----|------|----------------------------|
-| ME Inventory (scaffold lineage) | `C:\Projects\Active\Inventory_Apps\ME\ME_Inventory` | `ME_Inventory_App_Tauri_v2` @ `e092c73` |
-| TE Parts / Components | `C:\Projects\Active\Inventory_Apps\TE\TE_Parts_Inventory` | `TE_Component_Inventory` @ `e444389` |
+## Implemented state
 
-## Planning authority
+### Decisions and domain
 
-| Doc | Role |
-|-----|------|
-| [planning/DECISIONS.md](planning/DECISIONS.md) | **Authoritative** decisions |
-| [planning/PROJECT_DISCUSSION.md](planning/PROJECT_DISCUSSION.md) | Product context + build sequence |
-| [planning/SECOND_OPINION_REVIEW.md](planning/SECOND_OPINION_REVIEW.md) | Acceptance criteria |
-| [planning/ENGINEERING_SUGGESTIONS.md](planning/ENGINEERING_SUGGESTIONS.md) | Advisory implementation notes |
-| [planning/README.md](planning/README.md) | Index + identity |
+D-017 through D-025 resolve former O-001 through O-008 for the initial implementation:
 
-## Build sequence (do not skip)
+- current-state calibration fields only; `CalibrationEvent` history is deferred;
+- requirement is `required | reference_only | not_required | unknown` and out-to-calibration is separate;
+- explicit due date is authoritative; optional interval only suggests a date;
+- derived health is `missing_due | overdue | due_soon | current | not_applicable | unknown | out_to_cal` with the inclusive 30-day due-soon window;
+- `verifiedAt` replaces timeless verification, with optional free-text `verifiedBy`;
+- optional certificate reference/vendor notes and existing picture path remain simple strings;
+- UUID is stable identity; manufacturer plus model never auto-merges;
+- archive remains separate from lifecycle.
 
-1. Data discovery — profile live Python **Excel export** (keep out of git; use `data/import/`)  
-2. Resolve open decisions in DECISIONS.md  
-3. Base comparison note (working tree already ME-based; record O-002 formally)  
-4. Finish rebrand/cleanup (updater, preference keys, LocalAppData, strip ME leftovers)  
-5. Domain / storage / sync for calibration  
-6. Importer (dry-run → commit)  
-7. UI (derived health, filters, dialog)  
-8. Ops hardening + two-machine sync proof  
-9. Migration rehearsal  
-10. Cutover  
+The entry contract is wired through Rust and TypeScript models, FeOxDB serialization, legacy verification projection, mutations, merge/diff, sync schema 2 payloads, snapshots, export, and tests. Derived health is computed rather than stored.
 
-**Do not** jump to full calibration UI polish or freeze schema without export profiling + open decisions.
+### Importer
 
-## Open decisions still blocking schema freeze
+The desktop flow supports `.csv`, `.xlsx`, and `.xls` paths, dry-run reporting, and an explicitly confirmed commit. Every source row is classified as inserted, matched, conflicted, rejected, or ignored; columns and raw values remain accountable. Batch identity and provenance cover file, sheet, row, and original identifiers. Commit revalidates source and reconciliation state, blocks conflicts/rejections, is idempotent, and writes inserts through normal mutation/outbox paths.
 
-| ID | Topic |
-|----|--------|
-| O-001 | CalibrationEvent history vs current-state-only v1 |
-| O-002 | Formal base SHA record (tree is already ME-scaffolded) |
-| O-003 | Certificate/picture handling |
-| O-004 | Final shared root / ACLs / backup owner |
-| O-005 | Operator attribution (`verifiedBy` / cal operator) |
-| O-006 | Explicit due dates only vs interval-derived |
-| O-007 | UI labels for `reference_only` vs `not_required` |
-| O-008 | Live Excel export profile |
+A live export is present locally under the gitignored `data/import/` path and has been aggregate-profiled under D-025. The importer selects its `Inventory` sheet, accounts for the exact 22-column shape, and dry-runs against an empty temporary database as `573 total / 515 inserted / 0 matched / 50 conflicted / 8 rejected / 0 ignored`, with `blocking=true`. Supporting sheets are excluded by selection rather than counted as ignored inventory rows. The 50 identity conflicts and eight invalid-date rows must be corrected before commit. See [planning/IMPORT_PROFILE.md](planning/IMPORT_PROFILE.md).
 
-## Accepted calibration baseline (implement later; do not invent mixed enum)
+### UI and operations
 
-- Requirement: `required | reference_only | not_required | unknown`  
-- Workflow: `outToCalibration` separate  
-- Derived health: `missing_due | overdue | due_soon | current | not_applicable | unknown | out_to_cal`  
-- Due soon: `today <= dueDate <= today + 30 days`  
-- Required + no due date → **`missing_due`**, never current  
-- Import: UUID identity; never auto-merge on manufacturer+model  
+The existing inventory shell now shows and edits calibration requirement, last/due dates, interval suggestion, out-to-calibration, certificate/vendor/notes, and timestamped verification. Table badges, health/requirement/due-window filters, sorting, and active overdue/due-soon/missing-due/out-to-cal counts are implemented. The importer dialog exposes dry run, blocking state, explicit confirmation, classifications, diagnostics, and commit result.
 
-## Suggested next sessions (pick one)
+The default export filename is `TE_Test_Equipment_Inventory_Export.xlsx`, and workbook output includes calibration, derived health, verification, and provenance fields.
 
-1. **Finish rebrand hygiene** — strip ME release/updater/`com.me.inventory` leftovers; enforce LocalAppData path.  
-2. **Close open product decisions** — O-001, O-003, O-005, O-006, O-007 into DECISIONS.md.  
-3. **Data discovery** — place export under `data/import/` (gitignored) and profile headers/duplicates/cal combos.  
-4. **Domain slice** — add calibration fields + derived health + tests (after O-001/O-006 clarity).  
-5. **Init git** — optional; remote may be new repo or continue planning-repo story under Test Equipment name.
+Production shared synchronization is disabled by default and remains configuration-gated:
 
-## Agent rules of thumb
+- `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED`
+- `TE_TEST_EQUIPMENT_SHARED_ROOT`
+- `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY`
 
-- Prefer thin vertical slices; verify with real commands before claiming “works.”  
-- Sync artifacts ≠ backup (D-013).  
-- Production shared sync stays config-gated until two-machine proof (D-012).  
-- Do not silently discard import columns/rows (D-008).  
-- Engineering docs under `docs/engineering/` are mostly **ME-lineage** runbooks; treat planning/ as product truth for equipment/calibration.
+Sync is not a backup. Final root/ACL/owner decisions, restore proof, and real two-machine validation remain operations gates.
 
-## Paste block for a new chat
+## Verification evidence recorded in this implementation session
 
-Copy the block in [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md) into a new agent session opened on this folder.
+This evidence supports the implementation candidate; it is not the independent final review or Boss acceptance gate.
+
+Frontend, using the SHA-verified official portable Node 24.18.0 because Bun 1.3.14 crashed when invoking ESLint/Vitest on this workstation:
+
+- explicit TypeScript build for `frontend/tsconfig.app.json`, `frontend/tsconfig.node.json`, and `frontend/tsconfig.tests.json`: exit 0;
+- full Vitest run: 15 files passed, 1 skipped; 120 tests passed, 1 skipped.
+
+The portable Node path under `C:\tmp` is a session tool, not a project dependency or required installation path. `bun install --frozen-lockfile` completed, but ordinary project commands remain the documented interface.
+
+Backend:
+
+- `cargo fmt --manifest-path backend/Cargo.toml --all -- --check`: exit 0;
+- `cargo check --manifest-path backend/Cargo.toml --all-targets`: exit 0;
+- `cargo clippy --manifest-path backend/Cargo.toml --all-targets --all-features -- -D warnings`: exit 0;
+- `cargo test --manifest-path backend/Cargo.toml --test import_flow -- --nocapture`: exit 0 — 55 passed, including the aggregate-only live workbook test;
+- dedicated live dry run: 1 passed and printed `573 total / 515 inserted / 0 matched / 50 conflicted / 8 rejected / 0 ignored / blocking=true`;
+- `cargo test --manifest-path backend/Cargo.toml --no-fail-fast`: exit 0 — library 62, importer 55, performance 25 plus 1 ignored, shared flow 37, conflict flow 38, and sync core 51 passed.
+
+## Remaining gates and limitations
+
+Before claiming the initial version complete:
+
+1. Run an independent read-only post-change review against acceptance A–G and route any fixes through a Worker.
+2. Run Boss verification of frontend lint/test/build, backend gates, Tauri/desktop build or exact environment blocker, and an isolated smoke. Do not represent the evidence above as that Boss gate.
+3. Correct the 50 identity-conflicted rows and eight invalid-date rows in a protected cutover source, then repeat the aggregate dry run. Never commit the workbook.
+4. Rehearse protected import, backup retention, restore, and rollback. Preserve a Python read-only window; do not retire the Python app in this phase.
+5. Decide the department-owned shared root, ACL writers, backup owner, and run real two-machine proof before production shared mode.
+6. Obtain owner authorization before publishing, deploying, installing on lab PCs, or changing external state.
+
+Known v0.1 boundaries:
+
+- current calibration values overwrite prior values; there is no event/audit ledger;
+- certificate and picture fields are references, not a managed cross-machine media vault;
+- valid binary `.xls` parsing is routed through calamine but no valid binary `.xls` fixture has been generated;
+- the import source must stay accessible and unchanged between preview and commit;
+- live aggregate fit is verified, but live commit and cutover readiness remain blocked on source correction, protected rehearsal, restore proof, and authorization.
+
+Use [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md) to begin a new session without reopening settled decisions.

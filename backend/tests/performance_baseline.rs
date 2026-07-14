@@ -202,14 +202,14 @@ fn synthetic_entry(index: usize) -> InventoryEntry {
         entry_uuid: format!("perf-entry-{id:05}"),
         asset_number: format!("ME-{id:05}"),
         serial_number: format!("SN-{id:05}"),
-        qty: (index % 11 != 0).then_some(((index % 23) + 1) as f64),
+        qty: (!index.is_multiple_of(11)).then_some(((index % 23) + 1) as f64),
         manufacturer: maker,
         model: format!("Model {}", index % 113),
         description: format!("Calibration fixture and measurement asset {id}"),
         project_name: format!("Project {}", index % 29),
         location,
         assigned_to: format!("User {}", index % 19),
-        links: if index % 13 == 0 {
+        links: if index.is_multiple_of(13) {
             format!("https://example.com/assets/{id}")
         } else {
             String::new()
@@ -217,13 +217,25 @@ fn synthetic_entry(index: usize) -> InventoryEntry {
         notes: format!("Synthetic performance note {id} with calibration history"),
         lifecycle_status: lifecycle_status.to_string(),
         working_status: working_status.to_string(),
-        condition: if index % 7 == 0 {
+        condition: if index.is_multiple_of(7) {
             "Calibration due".to_string()
         } else {
             "Good".to_string()
         },
-        verified_in_survey: index % 3 == 0,
-        archived: index % 10 == 0,
+        calibration_requirement: model::CalibrationRequirement::Unknown,
+        out_to_calibration: false,
+        last_calibrated_at: None,
+        calibration_due_at: None,
+        calibration_interval_months: None,
+        certificate_ref: None,
+        calibration_vendor: None,
+        calibration_notes: None,
+        verified_at: index
+            .is_multiple_of(3)
+            .then(|| "2026-01-01T00:00:00Z".to_string()),
+        verified_by: None,
+        import_provenance: None,
+        archived: index.is_multiple_of(10),
         manual_entry: false,
         picture_path: String::new(),
         created_at: format!("2026-04-{:02}T08:00:00.000Z", (index % 28) + 1),

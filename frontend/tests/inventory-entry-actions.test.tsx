@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { InventoryShell } from "@/features/inventory/components/InventoryShell";
 
-const TEST_DB_PATH = "D:/coding/ME Inventory/app-data/inventory.feox";
+const TEST_DB_PATH = "C:/Users/Test/AppData/Local/com.te.test.equipment.inventory/inventory.feox";
 
 describe("InventoryShell entry actions", () => {
   beforeEach(() => {
@@ -167,7 +167,6 @@ describe("InventoryShell entry actions", () => {
       projectName: "Security",
       qty: 1,
       updatedAt: "2026-04-25T12:00:00.000Z",
-      verifiedInSurvey: false,
       workingStatus: "working" as const,
     };
     window.inventoryDesktop = {
@@ -202,7 +201,10 @@ describe("InventoryShell entry actions", () => {
       openExternal,
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/ME_Inventory_Export.xlsx" }),
+      pickImportFile: vi.fn().mockResolvedValue(null),
+      previewImport: vi.fn(),
+      commitImport: vi.fn(),
+      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     };
 
     render(<InventoryShell />);

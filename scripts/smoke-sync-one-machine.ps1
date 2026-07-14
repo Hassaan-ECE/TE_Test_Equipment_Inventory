@@ -1,5 +1,5 @@
 param(
-    [string]$SmokeRoot = (Join-Path $env:TEMP "me-inventory-sync-smoke")
+    [string]$SmokeRoot = (Join-Path $env:TEMP "te-test-equipment-inventory-sync-smoke")
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,16 +18,18 @@ if (Test-Path -LiteralPath $resolvedSmokeRoot) {
 }
 
 New-Item -ItemType Directory -Path $resolvedSmokeRoot | Out-Null
-$env:ME_SYNC_SMOKE_ROOT = $resolvedSmokeRoot
+$env:TE_TEST_EQUIPMENT_SYNC_SMOKE_ROOT = $resolvedSmokeRoot
+$env:TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED = "true"
 
-Write-Host "ME Inventory one-machine sync smoke"
+Write-Host "TE Test Equipment Inventory one-machine sync smoke"
 Write-Host "Smoke root: $resolvedSmokeRoot"
 
 try {
     cargo test --manifest-path $manifestPath --test shared_sync_flow scripted_one_machine_smoke_uses_env_shared_root -- --nocapture
     $exitCode = $LASTEXITCODE
 } finally {
-    Remove-Item Env:\ME_SYNC_SMOKE_ROOT -ErrorAction SilentlyContinue
+    Remove-Item Env:\TE_TEST_EQUIPMENT_SYNC_SMOKE_ROOT -ErrorAction SilentlyContinue
+    Remove-Item Env:\TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED -ErrorAction SilentlyContinue
 }
 
 $opsDir = Join-Path $resolvedSmokeRoot "shared-root\shared\inventory\ops"

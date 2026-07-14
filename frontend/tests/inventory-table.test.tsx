@@ -23,7 +23,12 @@ describe("InventoryShell table controls", () => {
     const unsafeEntry: InventoryEntry = {
       archived: false,
       assetNumber: "ME-UNSAFE",
+      assignedTo: "",
+      calibrationRequirement: "unknown",
+      condition: "",
+      createdAt: "2026-04-25T12:00:00.000Z",
       description: "Unsafe link entry",
+      entryUuid: "unsafe-1",
       id: "unsafe-1",
       links: "javascript:alert(1)",
       lifecycleStatus: "active",
@@ -31,10 +36,13 @@ describe("InventoryShell table controls", () => {
       manufacturer: "Acme",
       model: "Unsafe",
       notes: "",
+      outToCalibration: false,
+      manualEntry: true,
+      picturePath: "",
       projectName: "Security",
       qty: 1,
+      serialNumber: "",
       updatedAt: "2026-04-25T12:00:00.000Z",
-      verifiedInSurvey: false,
       workingStatus: "working",
     };
 
@@ -63,7 +71,12 @@ describe("InventoryShell table controls", () => {
     const entry: InventoryEntry = {
       archived: false,
       assetNumber: "ME-LINK",
+      assignedTo: "",
+      calibrationRequirement: "unknown",
+      condition: "",
+      createdAt: "2026-04-25T12:00:00.000Z",
       description: "Safe link entry",
+      entryUuid: "link-1",
       id: "link-1",
       links: "https://example.com/item",
       lifecycleStatus: "active",
@@ -71,10 +84,13 @@ describe("InventoryShell table controls", () => {
       manufacturer: "Acme",
       model: "Link",
       notes: "",
+      outToCalibration: false,
+      manualEntry: true,
+      picturePath: "",
       projectName: "Security",
       qty: 1,
+      serialNumber: "",
       updatedAt: "2026-04-25T12:00:00.000Z",
-      verifiedInSurvey: false,
       workingStatus: "working",
     };
 
@@ -133,7 +149,7 @@ describe("InventoryShell table controls", () => {
     fireEvent.contextMenu(row as HTMLTableRowElement, { clientX: 42, clientY: 84 });
     expect(onOpenContextMenu).toHaveBeenCalledWith("row-actions-1", 42, 84);
 
-    const verifiedButton = screen.getByRole("button", { name: "Toggle verified for Row actions entry" });
+    const verifiedButton = screen.getByRole("button", { name: "Verify Row actions entry" });
     await user.click(verifiedButton);
     expect(onToggleVerified).toHaveBeenCalledWith("row-actions-1");
 
@@ -154,11 +170,32 @@ describe("InventoryShell table controls", () => {
     });
   });
 
+  it("renders calibration cells and a verifiedAt-driven accessible action", () => {
+    const entry = buildEntry({
+      calibrationRequirement: "required",
+      outToCalibration: true,
+      calibrationDueAt: "2026-07-20",
+      verifiedAt: "2026-07-13T12:00:00Z",
+      verifiedBy: "Avery",
+    });
+    render(
+      <InventoryTable canModifyEntries colorRows={false} columns={INVENTORY_COLUMNS} entries={[entry]}
+        localDate="2026-07-13"
+        sortState={{ column: "calibrationHealth", direction: "asc" }} onOpenContextMenu={() => undefined}
+        onOpenEntry={() => undefined} onOpenExternalLink={() => undefined} onSortChange={() => undefined}
+        onToggleVerified={() => undefined} />,
+    );
+    expect(screen.getByText("Required")).toBeInTheDocument();
+    expect(screen.getAllByText("Out to cal").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("2026-07-20")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clear verification.*2026-07-13T12:00:00Z.*Avery/i })).toBeInTheDocument();
+  });
+
   it("hides a selected column from the table", async () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: /Columns/i }));
+    await user.click(screen.getByRole("button", { name: "View settings" }));
     await user.click(screen.getByRole("checkbox", { name: "Links" }));
 
     expect(screen.queryByRole("columnheader", { name: /Links/i })).not.toBeInTheDocument();
@@ -168,6 +205,7 @@ describe("InventoryShell table controls", () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
+    await user.click(screen.getByRole("button", { name: "View settings" }));
     const colorRowsToggle = screen.getByRole("button", { name: "Color rows" });
     const firstRow = screen.getByText("Stainless socket-head cap screws, 1/4-20").closest("tr");
 
@@ -187,12 +225,16 @@ describe("InventoryShell table controls", () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: /Columns/i }));
+    await user.click(screen.getByRole("button", { name: "View settings" }));
     await user.click(screen.getByRole("checkbox", { name: "Links" }));
     await user.click(screen.getByRole("checkbox", { name: "Location" }));
     await user.click(screen.getByRole("checkbox", { name: "Description" }));
     await user.click(screen.getByRole("checkbox", { name: "Model" }));
     await user.click(screen.getByRole("checkbox", { name: "Manufacturer" }));
+    await user.click(screen.getByRole("checkbox", { name: "Calibration" }));
+    await user.click(screen.getByRole("checkbox", { name: "Out to cal" }));
+    await user.click(screen.getByRole("checkbox", { name: "Calibration due" }));
+    await user.click(screen.getByRole("checkbox", { name: "Calibration health" }));
 
     expect(screen.getByRole("checkbox", { name: "Qty" })).toBeDisabled();
     expect(screen.getByRole("columnheader", { name: /Qty/i })).toBeInTheDocument();
@@ -203,7 +245,12 @@ function buildEntry(overrides: Partial<InventoryEntry> = {}): InventoryEntry {
   return {
     archived: false,
     assetNumber: "ME-ROW",
+    assignedTo: "",
+    calibrationRequirement: "unknown",
+    condition: "",
+    createdAt: "2026-04-25T12:00:00.000Z",
     description: "Table row entry",
+    entryUuid: "row-1",
     id: "row-1",
     links: "",
     lifecycleStatus: "active",
@@ -211,11 +258,14 @@ function buildEntry(overrides: Partial<InventoryEntry> = {}): InventoryEntry {
     manufacturer: "Acme",
     model: "Row",
     notes: "",
+    outToCalibration: false,
+    manualEntry: true,
+    picturePath: "",
     projectName: "Inventory",
     qty: 1,
+    serialNumber: "",
     updatedAt: "2026-04-25T12:00:00.000Z",
-    verifiedInSurvey: false,
     workingStatus: "working",
     ...overrides,
-  };
+  } as InventoryEntry;
 }

@@ -65,7 +65,7 @@ impl WorkbookFormats {
     ) -> &'a Format {
         match column.kind {
             CellKind::Centered => {
-                if row_index % 2 == 0 {
+                if row_index.is_multiple_of(2) {
                     &self.centered_even
                 } else {
                     &self.centered_odd
@@ -73,21 +73,21 @@ impl WorkbookFormats {
             }
             CellKind::Lifecycle => self.lifecycle_format(&entry.lifecycle_status, row_index),
             CellKind::Number => {
-                if row_index % 2 == 0 {
+                if row_index.is_multiple_of(2) {
                     &self.number_even
                 } else {
                     &self.number_odd
                 }
             }
             CellKind::Text => {
-                if row_index % 2 == 0 {
+                if row_index.is_multiple_of(2) {
                     &self.text_even
                 } else {
                     &self.text_odd
                 }
             }
             CellKind::WrappedText => {
-                if row_index % 2 == 0 {
+                if row_index.is_multiple_of(2) {
                     &self.wrapped_even
                 } else {
                     &self.wrapped_odd
@@ -105,7 +105,7 @@ impl WorkbookFormats {
             "repair" => &self.lifecycle_repair,
             "scrapped" => &self.lifecycle_scrapped,
             _ => {
-                if row_index % 2 == 0 {
+                if row_index.is_multiple_of(2) {
                     &self.centered_even
                 } else {
                     &self.centered_odd
@@ -120,7 +120,7 @@ impl WorkbookFormats {
             "not_working" => &self.working_not_working,
             "working" => &self.working_working,
             _ => {
-                if row_index % 2 == 0 {
+                if row_index.is_multiple_of(2) {
                     &self.centered_even
                 } else {
                     &self.centered_odd

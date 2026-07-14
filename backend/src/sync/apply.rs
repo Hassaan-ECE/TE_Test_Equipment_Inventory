@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    model::{now_timestamp, numeric_id, CommandResult, InventoryEntry},
+    model::{now_timestamp, numeric_id, validate_inventory_entry, CommandResult, InventoryEntry},
     store::InventoryDb,
 };
 
@@ -17,7 +17,10 @@ use super::{
         push_pending_local_operations,
     },
     scanning::scan_operation_files_after_watermarks,
-    shared_paths::{build_shared_status, ensure_operation_log_layout, resolve_shared_root},
+    shared_paths::{
+        build_shared_status, disabled_shared_status, ensure_operation_log_layout,
+        resolve_shared_root, shared_sync_enabled,
+    },
     snapshot::{apply_latest_snapshot_if_safe, maybe_publish_snapshot},
     timestamps::max_timestamp_text,
     CorruptRemoteFile, CorruptRemoteReason, SharedSyncPaths, SharedSyncRunResult,
@@ -25,6 +28,15 @@ use super::{
 };
 
 pub(crate) fn run_shared_sync(db: &InventoryDb) -> CommandResult<SharedSyncRunResult> {
+    if !shared_sync_enabled() {
+        return Ok(SharedSyncRunResult {
+            entries_changed: false,
+            shared: disabled_shared_status(
+                Some(db),
+                "Shared sync is disabled for this release. No shared path was accessed.",
+            ),
+        });
+    }
     let root = resolve_shared_root();
     run_shared_sync_with_root(db, root)
 }
@@ -32,6 +44,15 @@ pub(crate) fn run_shared_sync(db: &InventoryDb) -> CommandResult<SharedSyncRunRe
 pub(crate) fn publish_pending_local_changes(
     db: &InventoryDb,
 ) -> CommandResult<SharedSyncRunResult> {
+    if !shared_sync_enabled() {
+        return Ok(SharedSyncRunResult {
+            entries_changed: false,
+            shared: disabled_shared_status(
+                Some(db),
+                "Shared sync is disabled for this release. Change saved locally; sync is not a backup.",
+            ),
+        });
+    }
     let root = resolve_shared_root();
     let paths = SharedSyncPaths::from_shared_root(root);
 
@@ -296,6 +317,10 @@ fn try_merge_concurrent_field_update(
     apply_changed_fields(&mut merged_entry, incoming_entry, &incoming_fields);
     merged_entry.updated_at =
         max_timestamp_text(&current_entry.updated_at, &operation.mutation_ts_utc);
+    if validate_inventory_entry(&merged_entry).is_err() {
+        record_stale_operation_conflict(db, operation, current_state)?;
+        return Ok(Some(false));
+    }
     let changed = merged_entry != current_entry;
     if changed {
         db.put_entry(&merged_entry)?;
@@ -323,7 +348,13 @@ fn try_merge_concurrent_field_update(
 fn normalized_changed_fields(fields: &[String]) -> Vec<String> {
     let mut normalized = fields
         .iter()
-        .map(|field| normalize_changed_field(field))
+        .flat_map(|field| {
+            if field.trim() == "verifiedInSurvey" {
+                vec!["verified_at".to_string(), "verified_by".to_string()]
+            } else {
+                vec![normalize_changed_field(field)]
+            }
+        })
         .filter(|field| !field.is_empty())
         .collect::<Vec<_>>();
     normalized.sort();
@@ -333,7 +364,16 @@ fn normalized_changed_fields(fields: &[String]) -> Vec<String> {
 
 fn normalize_changed_field(field: &str) -> String {
     match field.trim() {
-        "verifiedInSurvey" => "verified_in_survey".to_string(),
+        "calibrationRequirement" => "calibration_requirement".to_string(),
+        "outToCalibration" => "out_to_calibration".to_string(),
+        "lastCalibratedAt" => "last_calibrated_at".to_string(),
+        "calibrationDueAt" => "calibration_due_at".to_string(),
+        "calibrationIntervalMonths" => "calibration_interval_months".to_string(),
+        "certificateRef" => "certificate_ref".to_string(),
+        "calibrationVendor" => "calibration_vendor".to_string(),
+        "calibrationNotes" => "calibration_notes".to_string(),
+        "verifiedAt" | "verifiedInSurvey" => "verified_at".to_string(),
+        "verifiedBy" => "verified_by".to_string(),
         "projectName" => "project_name".to_string(),
         "workingStatus" => "working_status".to_string(),
         "lifecycleStatus" => "lifecycle_status".to_string(),
@@ -342,7 +382,9 @@ fn normalize_changed_field(field: &str) -> String {
         "serialNumber" => "serial_number".to_string(),
         "assignedTo" => "assigned_to".to_string(),
         "databaseId" | "database_id" | "entryUuid" | "entry_uuid" | "createdAt" | "created_at"
-        | "updatedAt" | "updated_at" | "id" => String::new(),
+        | "updatedAt" | "updated_at" | "importProvenance" | "import_provenance" | "id" => {
+            String::new()
+        }
         other => other.to_string(),
     }
 }
@@ -375,7 +417,28 @@ fn apply_changed_fields(target: &mut InventoryEntry, source: &InventoryEntry, fi
             "lifecycle_status" => target.lifecycle_status = source.lifecycle_status.clone(),
             "working_status" => target.working_status = source.working_status.clone(),
             "condition" => target.condition = source.condition.clone(),
-            "verified_in_survey" => target.verified_in_survey = source.verified_in_survey,
+            "calibration_requirement" => {
+                target.calibration_requirement = source.calibration_requirement
+            }
+            "out_to_calibration" => target.out_to_calibration = source.out_to_calibration,
+            "last_calibrated_at" => target
+                .last_calibrated_at
+                .clone_from(&source.last_calibrated_at),
+            "calibration_due_at" => target
+                .calibration_due_at
+                .clone_from(&source.calibration_due_at),
+            "calibration_interval_months" => {
+                target.calibration_interval_months = source.calibration_interval_months
+            }
+            "certificate_ref" => target.certificate_ref.clone_from(&source.certificate_ref),
+            "calibration_vendor" => target
+                .calibration_vendor
+                .clone_from(&source.calibration_vendor),
+            "calibration_notes" => target
+                .calibration_notes
+                .clone_from(&source.calibration_notes),
+            "verified_at" => target.verified_at.clone_from(&source.verified_at),
+            "verified_by" => target.verified_by.clone_from(&source.verified_by),
             "archived" => target.archived = source.archived,
             "picture_path" => target.picture_path = source.picture_path.clone(),
             _ => {}
@@ -417,6 +480,7 @@ fn apply_remote_upsert(db: &InventoryDb, operation: &SyncOperationEnvelope) -> C
     let Some(entry) = operation.payload.entry.clone() else {
         return Ok(false);
     };
+    validate_inventory_entry(&entry)?;
 
     if db.has_sync_tombstone(&operation.entity_id)? {
         db.delete_sync_tombstone(&operation.entity_id)?;

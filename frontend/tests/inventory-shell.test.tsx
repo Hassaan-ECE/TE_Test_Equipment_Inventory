@@ -25,13 +25,14 @@ describe("InventoryShell loading and search", () => {
   it("renders the inventory view by default with seeded counts", () => {
     render(<InventoryShell />);
 
-    expect(screen.getAllByText("ME Inventory")).toHaveLength(1);
-    expect(screen.getByText(`v${APP_VERSION}`)).toBeInTheDocument();
+    expect(screen.getAllByText("TE Test Equipment Inventory")).toHaveLength(1);
+    expect(screen.queryByText(`v${APP_VERSION}`)).not.toBeInTheDocument();
     expect(screen.getAllByText(APP_CREDIT).length).toBeGreaterThanOrEqual(1);
     expect(document.title).toBe(APP_DISPLAY_NAME);
     expect(document.title).not.toContain(APP_CREDIT);
     expect(screen.queryByText(/prototype/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Import Data" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /update/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Export/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export Excel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export HTML" })).not.toBeInTheDocument();
@@ -41,13 +42,30 @@ describe("InventoryShell loading and search", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Showing all 10 entries")).toBeInTheDocument();
-    expect(screen.getByText("Total: 14 | Verified: 8/14")).toBeInTheDocument();
+    expect(screen.queryByText(/Total:\s*\d+/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Overdue: 1")).toBeInTheDocument();
+    expect(screen.getByText("Due soon: 2")).toBeInTheDocument();
+    expect(screen.getByText("Missing due: 1")).toBeInTheDocument();
+    expect(screen.getByText("Out to cal: 1")).toBeInTheDocument();
+    expect(screen.getByText("Local")).toBeInTheDocument();
+    expect(screen.getByText(/Built by Syed Hassaan Shah/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /Manufacturer/i })).toBeInTheDocument();
+  });
+
+  it("shows semantic calibration filters", async () => {
+    const user = userEvent.setup();
+    render(<InventoryShell />);
+    await user.click(screen.getByRole("button", { name: "View settings" }));
+    await user.click(screen.getByRole("menuitem", { name: /Show filters/i }));
+    expect(screen.getByLabelText("Calibration requirement")).toBeInTheDocument();
+    expect(screen.getByLabelText("Calibration health")).toBeInTheDocument();
+    expect(screen.getByLabelText("Due window")).toBeInTheDocument();
   });
 
   it("loads entries from the desktop bridge when available", async () => {
     const desktopEntries: InventoryEntry[] = [
-      {
+      buildTestEntry({
         id: "101",
         assetNumber: "ME-101",
         qty: 1,
@@ -60,11 +78,11 @@ describe("InventoryShell loading and search", () => {
         notes: "",
         lifecycleStatus: "active",
         workingStatus: "working",
-        verifiedInSurvey: true,
+        verifiedAt: "2026-07-13T12:00:00Z",
         archived: false,
         updatedAt: "2026-04-23 10:00:00",
-      },
-      {
+      }),
+      buildTestEntry({
         id: "102",
         assetNumber: "ME-102",
         qty: 2,
@@ -77,14 +95,12 @@ describe("InventoryShell loading and search", () => {
         notes: "",
         lifecycleStatus: "active",
         workingStatus: "working",
-        verifiedInSurvey: false,
         archived: false,
         updatedAt: "2026-04-22 09:00:00",
-      },
+      }),
     ];
 
-    window.inventoryDesktop = {
-      isDesktop: true,
+    window.inventoryDesktop = createDesktopBridge({
       loadInventory: vi.fn().mockResolvedValue({
         dbPath: TEST_DB_PATH,
         entries: desktopEntries,
@@ -103,15 +119,19 @@ describe("InventoryShell loading and search", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/ME_Inventory_Export.xlsx" }),
-    };
+      exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
+    });
 
     render(<InventoryShell />);
 
     expect(screen.getByText("Loading inventory entries...")).toBeInTheDocument();
     expect(await screen.findByText("Showing all 2 entries")).toBeInTheDocument();
+    expect(screen.queryByText("Loading TE Test Equipment Inventory database...")).not.toBeInTheDocument();
     expect(screen.getByText("Bridgeport")).toBeInTheDocument();
-    expect(screen.getByText("Total: 2 | Verified: 1/2")).toBeInTheDocument();
+    expect(screen.queryByText(/Total:\s*\d+/i)).not.toBeInTheDocument();
+    // Connected shared status fixture → Shared mode pill next to title/version
+    expect(screen.getByText("Shared")).toBeInTheDocument();
+    expect(screen.getByText(/Built by Syed Hassaan Shah/i)).toBeInTheDocument();
   });
 
   it("does not show bundled mock data when desktop database loading fails", async () => {
@@ -125,7 +145,7 @@ describe("InventoryShell loading and search", () => {
     expect(screen.getByText("Loading inventory entries...")).toBeInTheDocument();
     expect(await screen.findByText("Showing all 0 entries")).toBeInTheDocument();
     expect(screen.queryByText("Stainless socket-head cap screws")).not.toBeInTheDocument();
-    expect(screen.getByText("Could not load the ME Inventory database.")).toBeInTheDocument();
+    expect(screen.getByText("Could not load the TE Test Equipment Inventory database.")).toBeInTheDocument();
   });
 
   it("fails closed when bridge parsing rejects a malformed desktop payload", async () => {
@@ -138,7 +158,7 @@ describe("InventoryShell loading and search", () => {
 
     expect(await screen.findByText("Showing all 0 entries")).toBeInTheDocument();
     expect(screen.queryByText("Stainless socket-head cap screws")).not.toBeInTheDocument();
-    expect(screen.getByText("Could not load the ME Inventory database.")).toBeInTheDocument();
+    expect(screen.getByText("Could not load the TE Test Equipment Inventory database.")).toBeInTheDocument();
   });
 
   it("filters desktop search locally without querying the backend per keystroke", async () => {

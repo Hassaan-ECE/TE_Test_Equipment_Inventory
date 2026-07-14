@@ -7,7 +7,7 @@ mod sync;
 
 pub(crate) use api::commands;
 pub(crate) use domain::{model, query};
-pub(crate) use integrations::{deprecated_db_cleanup, export, native};
+pub(crate) use integrations::{deprecated_db_cleanup, export, inventory_import, native};
 pub(crate) use runtime::{shared_sync, shared_watcher};
 pub(crate) use storage as store;
 
@@ -18,7 +18,6 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let db = store::InventoryDb::open(app.handle())?;
             let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(app.handle(), &db);
@@ -37,6 +36,9 @@ pub fn run() {
             commands::toggle_verified_entry,
             commands::set_archived_entry,
             commands::delete_entry,
+            commands::pick_import_file,
+            commands::preview_import,
+            commands::commit_import,
             export::export_excel,
             native::load_picture_preview,
             native::open_external,

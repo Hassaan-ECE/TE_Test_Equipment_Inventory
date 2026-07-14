@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { InventoryShell } from "@/features/inventory/components/InventoryShell";
+import { THEME_STORAGE_KEY } from "@/features/inventory/components/shell/helpers";
 import {
   CONNECTED_SHARED_STATUS,
   TEST_DB_PATH,
@@ -32,7 +33,8 @@ describe("InventoryShell views and exports", () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await user.click(screen.getByRole("button", { name: "View settings" }));
+    await user.click(screen.getByRole("menuitem", { name: /Show filters/i }));
     const manufacturerFilter = screen.getByLabelText("Filter manufacturer");
     await user.type(manufacturerFilter, "Mitutoyo");
 
@@ -61,9 +63,9 @@ describe("InventoryShell views and exports", () => {
 
     await user.click(screen.getAllByRole("button", { name: /Dark/i })[0]);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(localStorage.getItem("meInventory.theme")).toBe("dark");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
 
-    await user.click(screen.getByRole("button", { name: /Toggle verified for Stainless socket-head cap screws/i }));
+    await user.click(screen.getByRole("button", { name: /Clear verification for Stainless socket-head cap screws/i }));
     expect(screen.getByText("Verified state updated locally.")).toBeInTheDocument();
   });
 
@@ -81,7 +83,7 @@ describe("InventoryShell views and exports", () => {
     const user = userEvent.setup();
     const exportExcel = vi.fn().mockResolvedValue({
       canceled: false,
-      outputPath: "D:/exports/ME_Inventory_Export.xlsx",
+      outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx",
     });
 
     window.inventoryDesktop = {
@@ -104,6 +106,9 @@ describe("InventoryShell views and exports", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
+      pickImportFile: vi.fn().mockResolvedValue(null),
+      previewImport: vi.fn(),
+      commitImport: vi.fn(),
       exportExcel,
     };
 

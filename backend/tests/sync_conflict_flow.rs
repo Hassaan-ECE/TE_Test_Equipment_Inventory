@@ -315,6 +315,111 @@ fn concurrent_disjoint_field_updates_are_merged_without_conflict() {
 }
 
 #[test]
+fn concurrent_disjoint_calibration_dates_that_form_invalid_range_are_conflicted_without_write() {
+    let db = test_db("sync-invalid-calibration-merge-target");
+    let shared_root = existing_shared_root("sync-invalid-calibration-merge-root");
+    let base_version = "2026-07-01T00:00:00.000Z".to_string();
+    let mut local_entry = sample_entry("1", "entry-invalid-calibration-merge", "Meter");
+    local_entry.calibration_requirement = model::CalibrationRequirement::Required;
+    local_entry.last_calibrated_at = Some("2026-07-10".to_string());
+    local_entry.calibration_due_at = None;
+    local_entry.updated_at = "2026-07-13T13:00:00.000Z".to_string();
+    db.put_entry(&local_entry).unwrap();
+    db.put_sync_value("meta:sync_bootstrap_complete", b"test")
+        .unwrap();
+    db.put_sync_entry_state(
+        &local_entry.entry_uuid,
+        &entry_state_for_test_with_fields(
+            &local_entry,
+            "op-local-last-calibrated",
+            false,
+            Some(base_version.clone()),
+            vec!["last_calibrated_at".to_string()],
+        ),
+    )
+    .unwrap();
+    db.flush();
+
+    let mut remote_entry = sample_entry("1", "entry-invalid-calibration-merge", "Meter");
+    remote_entry.calibration_requirement = model::CalibrationRequirement::Required;
+    remote_entry.last_calibrated_at = None;
+    remote_entry.calibration_due_at = Some("2026-07-09".to_string());
+    let remote_operation = remote_upsert_operation_with_fields(
+        "remote-calibration-client",
+        1,
+        "op-remote-calibration-due",
+        "2026-07-13T12:00:00.000Z",
+        remote_entry,
+        vec!["calibrationDueAt".to_string()],
+        Some(base_version),
+    );
+    write_remote_operation(&shared_root, &remote_operation);
+
+    let before_revision = db.sync_revision().unwrap();
+    let result = run_shared_sync_with_root(&db, &shared_root).unwrap();
+    let stored = db
+        .find_entry("entry-invalid-calibration-merge")
+        .unwrap()
+        .unwrap();
+
+    assert!(!result.entries_changed);
+    assert_eq!(stored.last_calibrated_at.as_deref(), Some("2026-07-10"));
+    assert_eq!(stored.calibration_due_at, None);
+    assert_eq!(conflict_count(&db), 1);
+    assert_eq!(db.sync_revision().unwrap(), before_revision);
+}
+
+#[test]
+fn concurrent_legacy_verified_alias_keeps_approximation_label_during_merge() {
+    let db = test_db("sync-legacy-verified-merge-target");
+    let shared_root = existing_shared_root("sync-legacy-verified-merge-root");
+    let base_version = "2026-07-01T00:00:00.000Z".to_string();
+    let mut local = sample_entry("1", "entry-legacy-verified-merge", "Meter");
+    local.location = "Local shelf".to_string();
+    local.updated_at = "2026-07-13T13:00:00.000Z".to_string();
+    db.put_entry(&local).unwrap();
+    db.put_sync_value("meta:sync_bootstrap_complete", b"test")
+        .unwrap();
+    db.put_sync_entry_state(
+        &local.entry_uuid,
+        &entry_state_for_test_with_fields(
+            &local,
+            "op-local-location",
+            false,
+            Some(base_version.clone()),
+            vec!["location".to_string()],
+        ),
+    )
+    .unwrap();
+    db.flush();
+
+    let mut remote = sample_entry("1", "entry-legacy-verified-merge", "Meter");
+    remote.verified_at = Some("2026-07-12T12:00:00Z".to_string());
+    remote.verified_by = Some(model::LEGACY_VERIFIED_APPROXIMATION_LABEL.to_string());
+    let operation = remote_upsert_operation_with_fields(
+        "remote-legacy-verified-client",
+        1,
+        "op-remote-legacy-verified",
+        "2026-07-13T12:00:00.000Z",
+        remote,
+        vec!["verifiedInSurvey".to_string()],
+        Some(base_version),
+    );
+    write_remote_operation(&shared_root, &operation);
+
+    run_shared_sync_with_root(&db, &shared_root).unwrap();
+    let merged = db
+        .find_entry("entry-legacy-verified-merge")
+        .unwrap()
+        .unwrap();
+    assert_eq!(merged.verified_at.as_deref(), Some("2026-07-12T12:00:00Z"));
+    assert_eq!(
+        merged.verified_by.as_deref(),
+        Some(model::LEGACY_VERIFIED_APPROXIMATION_LABEL)
+    );
+}
+
+#[test]
 fn concurrent_overlapping_field_updates_keep_lww_conflict_behavior() {
     let db = test_db("sync-field-overlap-target");
     let shared_root = existing_shared_root("sync-field-overlap-root");

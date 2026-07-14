@@ -1,6 +1,7 @@
 import { act } from "@testing-library/react";
 import { vi } from "vitest";
 
+import { getInventoryCounts } from "@/features/inventory/lib";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import type {
   InventoryCounts,
@@ -35,31 +36,43 @@ export const DISABLED_SHARED_STATUS: InventorySharedStatus = {
 };
 export const EMPTY_TEST_COUNTS: InventoryCounts = {
   archive: 0,
+  dueSoon: 0,
   inventory: 0,
+  missingDue: 0,
+  outToCal: 0,
+  overdue: 0,
   total: 0,
   verified: 0,
 };
-export const TEST_DB_PATH = "D:/coding/ME Inventory/app-data/inventory.feox";
+export const TEST_DB_PATH = "C:/Users/Test/AppData/Local/com.te.test.equipment.inventory/inventory.feox";
 
 export function buildTestEntry(overrides: Partial<InventoryEntry> = {}): InventoryEntry {
   return {
     id: "701",
-    assetNumber: "ME-701",
+    assetNumber: "TE-701",
+    serialNumber: "",
     qty: 1,
     manufacturer: "Sync Maker",
     model: "SM-701",
     description: "Sync test entry",
     projectName: "Shared",
     location: "Bench 1",
+    assignedTo: "",
     links: "",
     notes: "",
     lifecycleStatus: "active",
     workingStatus: "working",
-    verifiedInSurvey: false,
+    condition: "",
+    calibrationRequirement: "unknown",
+    outToCalibration: false,
     archived: false,
+    createdAt: "2026-04-26T10:00:00.000Z",
     updatedAt: "2026-04-26T10:00:00.000Z",
+    entryUuid: "00000000-0000-4000-8000-000000000701",
+    manualEntry: true,
+    picturePath: "",
     ...overrides,
-  };
+  } as InventoryEntry;
 }
 
 export function buildDesktopQueryResult(shared: InventorySharedStatus, entries: InventoryEntry[] = []): InventoryQueryResult {
@@ -81,24 +94,7 @@ export function buildDesktopSyncResult(shared: InventorySharedStatus, entries: I
 }
 
 export function buildInventoryCounts(entries: InventoryEntry[]): InventoryCounts {
-  let archive = 0;
-  let verified = 0;
-
-  for (const entry of entries) {
-    if (entry.archived) {
-      archive += 1;
-    }
-    if (entry.verifiedInSurvey) {
-      verified += 1;
-    }
-  }
-
-  return {
-    archive,
-    inventory: entries.length - archive,
-    total: entries.length,
-    verified,
-  };
+  return getInventoryCounts(entries, "2026-07-13");
 }
 
 export function createDesktopBridge(
@@ -126,7 +122,10 @@ export function createDesktopBridge(
     openExternal: vi.fn().mockResolvedValue(true),
     openPath: vi.fn().mockResolvedValue(true),
     pickPicturePath: vi.fn().mockResolvedValue(null),
-    exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/ME_Inventory_Export.xlsx" }),
+    pickImportFile: vi.fn().mockResolvedValue(null),
+    previewImport: vi.fn(),
+    commitImport: vi.fn(),
+    exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     ...overrides,
   } as NonNullable<Window["inventoryDesktop"]>;
 }

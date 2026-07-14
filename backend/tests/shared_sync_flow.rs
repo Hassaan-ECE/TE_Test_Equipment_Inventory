@@ -4,7 +4,10 @@ pub(crate) use backend::{model, store, sync};
 #[path = "support/sync_fixtures.rs"]
 mod sync_fixtures;
 
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 use store::InventoryDb;
 use sync::test_support::{run_shared_sync_with_root, set_test_hmac_key, SyncTombstoneRecord};
@@ -28,8 +31,8 @@ fn unavailable_shared_root_bootstraps_local_outbox_without_creating_root() {
     let result = run_shared_sync_with_root(&db, &missing_root).unwrap();
 
     assert!(!result.shared.available);
-    assert_eq!(result.shared.enabled, true);
-    assert_eq!(result.shared.can_modify, true);
+    assert!(result.shared.enabled);
+    assert!(result.shared.can_modify);
     assert_eq!(result.shared.has_local_only_changes, Some(true));
     assert!(result
         .shared
@@ -49,13 +52,13 @@ fn bootstrap_writes_one_operation_per_existing_entry_once() {
     let shared_root = existing_shared_root("sync-bootstrap-root");
 
     let first = run_shared_sync_with_root(&db, &shared_root).unwrap();
-    assert_eq!(first.shared.available, true);
+    assert!(first.shared.available);
     assert!(manifest_path(&shared_root).exists());
     assert_eq!(snapshot_file_count(&shared_root), 1);
     assert_eq!(operation_file_count(&shared_root), 0);
 
     let second = run_shared_sync_with_root(&db, &shared_root).unwrap();
-    assert_eq!(second.shared.available, true);
+    assert!(second.shared.available);
     assert_eq!(operation_file_count(&shared_root), 0);
     assert_eq!(outbox_count(&db), 2);
 }
@@ -65,6 +68,19 @@ fn fresh_database_hydrates_from_snapshot_then_newer_operations() {
     let db_source = test_db("sync-snapshot-source");
     let shared_root = existing_shared_root("sync-snapshot-root");
     let mut entry = sample_entry("1", "entry-snapshot", "Snapshot seed");
+    entry.calibration_requirement = model::CalibrationRequirement::Required;
+    entry.calibration_due_at = Some("2027-04-26".to_string());
+    entry.verified_at = Some("2026-04-26T08:00:00.000Z".to_string());
+    entry.verified_by = Some("Snapshot verifier".to_string());
+    entry.import_provenance = Some(model::ImportProvenance {
+        batch_id: "sha256:snapshot-batch".to_string(),
+        source_filename: "synthetic.xlsx".to_string(),
+        source_sheet: Some("Equipment".to_string()),
+        source_row: 2,
+        original_id: Some("legacy-1".to_string()),
+        original_asset_number: Some("ME-1".to_string()),
+        original_serial_number: Some("SN-1".to_string()),
+    });
     entry.updated_at = "2026-04-26T09:00:00.000Z".to_string();
     db_source.put_entry(&entry).unwrap();
     db_source.set_next_entry_id(2).unwrap();
@@ -90,13 +106,19 @@ fn fresh_database_hydrates_from_snapshot_then_newer_operations() {
     let result = run_shared_sync_with_root(&db_target, &shared_root).unwrap();
 
     assert!(result.entries_changed);
+    let hydrated = db_target.find_entry("entry-snapshot").unwrap().unwrap();
+    assert_eq!(hydrated.description, "Newer operation after snapshot");
     assert_eq!(
-        db_target
-            .find_entry("entry-snapshot")
-            .unwrap()
-            .unwrap()
-            .description,
-        "Newer operation after snapshot"
+        hydrated.calibration_requirement,
+        model::CalibrationRequirement::Required
+    );
+    assert_eq!(hydrated.calibration_due_at.as_deref(), Some("2027-04-26"));
+    assert_eq!(
+        hydrated
+            .import_provenance
+            .as_ref()
+            .map(|value| value.source_row),
+        Some(2)
     );
     assert!(db_target.last_snapshot_id().unwrap().is_some());
     assert_eq!(
@@ -363,8 +385,11 @@ fn local_mutation_increments_sync_revision() {
 
 #[test]
 fn scripted_one_machine_smoke_uses_env_shared_root() {
-    let Some(smoke_root) = env::var_os("ME_SYNC_SMOKE_ROOT").map(PathBuf::from) else {
-        println!("ME_SYNC_SMOKE_ROOT is not set; skipping script-only smoke scenario.");
+    let Some(smoke_root) = env::var_os("TE_TEST_EQUIPMENT_SYNC_SMOKE_ROOT").map(PathBuf::from)
+    else {
+        println!(
+            "TE_TEST_EQUIPMENT_SYNC_SMOKE_ROOT is not set; skipping script-only smoke scenario."
+        );
         return;
     };
     fs::create_dir_all(&smoke_root).unwrap();
@@ -490,7 +515,7 @@ fn scripted_one_machine_smoke_uses_env_shared_root() {
     println!("PASS one-machine sync smoke converged");
 }
 
-fn assert_hmac_snapshot_rejection(scenario: &str, corrupt_shared_snapshot: impl FnOnce(&PathBuf)) {
+fn assert_hmac_snapshot_rejection(scenario: &str, corrupt_shared_snapshot: impl FnOnce(&Path)) {
     let _hmac = set_test_hmac_key(Some("0123456789abcdef"));
     let db_source = test_db(&format!("sync-hmac-{scenario}-source"));
     let db_target = test_db(&format!("sync-hmac-{scenario}-target"));
@@ -510,15 +535,15 @@ fn assert_hmac_snapshot_rejection(scenario: &str, corrupt_shared_snapshot: impl 
     assert!(db_target.find_entry(&entry.entry_uuid).unwrap().is_none());
 }
 
-fn remove_manifest_auth(shared_root: &PathBuf) {
+fn remove_manifest_auth(shared_root: &Path) {
     remove_json_field(&manifest_path(shared_root), "auth");
 }
 
-fn remove_first_snapshot_auth(shared_root: &PathBuf) {
+fn remove_first_snapshot_auth(shared_root: &Path) {
     remove_json_field(&first_snapshot_path(shared_root), "auth");
 }
 
-fn tamper_first_snapshot_description(shared_root: &PathBuf) {
+fn tamper_first_snapshot_description(shared_root: &Path) {
     let path = first_snapshot_path(shared_root);
     let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     value["entries"][0]["description"] = serde_json::Value::String("Tampered snapshot".to_string());

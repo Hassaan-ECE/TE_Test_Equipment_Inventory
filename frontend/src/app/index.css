@@ -129,28 +129,42 @@ code,
   font-family: "SF Mono", "SFMono-Regular", Consolas, Menlo, monospace;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Thin themed fallback only for plain overflow areas that are not ScrollRegion. */
+*:not(.scroll-region-viewport) {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent) transparent;
 }
 
-::-webkit-scrollbar-track {
+*:not(.scroll-region-viewport)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*:not(.scroll-region-viewport)::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+*:not(.scroll-region-viewport)::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 18%, transparent);
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+*:not(.scroll-region-viewport)::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--foreground) 30%, transparent);
+  background-clip: padding-box;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+/* PDU-style ScrollRegion: hide the native scrollbar completely. */
+.scroll-region-viewport {
+  -ms-overflow-style: none;
+  scrollbar-width: none !important;
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18);
+.scroll-region-viewport::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }

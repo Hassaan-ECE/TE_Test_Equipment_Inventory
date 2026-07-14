@@ -3,34 +3,79 @@ export type ThemeMode = "light" | "dark";
 export type SortDirection = "asc" | "desc";
 export type LifecycleStatus = "active" | "repair" | "scrapped" | "missing" | "rental";
 export type WorkingStatus = "working" | "limited" | "not_working" | "unknown";
+export type CalibrationRequirement = "required" | "reference_only" | "not_required" | "unknown";
+export type CalibrationHealth =
+  | "missing_due"
+  | "overdue"
+  | "due_soon"
+  | "current"
+  | "not_applicable"
+  | "unknown"
+  | "out_to_cal";
+export type DueWindow = "all" | "overdue" | "next30" | "next60" | "next90" | "missing";
 
 export const LIFECYCLE_OPTIONS = ["active", "repair", "scrapped", "missing", "rental"] as const satisfies readonly LifecycleStatus[];
 export const WORKING_STATUS_OPTIONS = ["unknown", "working", "limited", "not_working"] as const satisfies readonly WorkingStatus[];
+export const CALIBRATION_REQUIREMENT_OPTIONS = [
+  "required",
+  "reference_only",
+  "not_required",
+  "unknown",
+] as const satisfies readonly CalibrationRequirement[];
+export const CALIBRATION_HEALTH_OPTIONS = [
+  "missing_due",
+  "overdue",
+  "due_soon",
+  "current",
+  "not_applicable",
+  "unknown",
+  "out_to_cal",
+] as const satisfies readonly CalibrationHealth[];
+
+export interface ImportProvenance {
+  batchId: string;
+  sourceFilename: string;
+  sourceSheet?: string;
+  sourceRow: number;
+  originalId?: string;
+  originalAssetNumber?: string;
+  originalSerialNumber?: string;
+}
 
 export interface InventoryEntry {
   id: string;
   databaseId?: number;
   assetNumber: string;
-  serialNumber?: string;
+  serialNumber: string;
   qty: number | null;
   manufacturer: string;
   model: string;
   description: string;
   projectName: string;
   location: string;
-  assignedTo?: string;
+  assignedTo: string;
   links: string;
   notes: string;
   lifecycleStatus: LifecycleStatus;
   workingStatus: WorkingStatus;
-  condition?: string;
-  verifiedInSurvey: boolean;
+  condition: string;
+  calibrationRequirement: CalibrationRequirement;
+  outToCalibration: boolean;
+  lastCalibratedAt?: string;
+  calibrationDueAt?: string;
+  calibrationIntervalMonths?: number;
+  certificateRef?: string;
+  calibrationVendor?: string;
+  calibrationNotes?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  importProvenance?: ImportProvenance;
   archived: boolean;
-  createdAt?: string;
+  createdAt: string;
   updatedAt: string;
-  entryUuid?: string;
-  manualEntry?: boolean;
-  picturePath?: string;
+  entryUuid: string;
+  manualEntry: boolean;
+  picturePath: string;
 }
 
 export interface InventoryEntryInput {
@@ -48,7 +93,16 @@ export interface InventoryEntryInput {
   lifecycleStatus: LifecycleStatus;
   workingStatus: WorkingStatus;
   condition: string;
-  verifiedInSurvey: boolean;
+  calibrationRequirement: CalibrationRequirement;
+  outToCalibration: boolean;
+  lastCalibratedAt?: string;
+  calibrationDueAt?: string;
+  calibrationIntervalMonths?: number;
+  certificateRef?: string;
+  calibrationVendor?: string;
+  calibrationNotes?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
   archived: boolean;
   picturePath?: string;
 }
@@ -73,9 +127,73 @@ export interface InventorySharedStatus {
 
 export interface InventoryCounts {
   archive: number;
+  dueSoon: number;
   inventory: number;
+  missingDue: number;
+  outToCal: number;
+  overdue: number;
   total: number;
   verified: number;
+}
+
+export type ImportClassification = "inserted" | "matched" | "conflicted" | "rejected" | "ignored";
+export type ImportColumnTreatment = "mapped" | "intentionally_ignored" | "unknown";
+
+export interface ImportColumnReport {
+  originalHeader: string;
+  normalizedTarget: string | null;
+  treatment: ImportColumnTreatment;
+  nonblankCount: number;
+  reason: string;
+}
+
+export interface ImportRowOutcome {
+  sourceRow: number;
+  classification: ImportClassification;
+  issues: string[];
+  originalId: string | null;
+  originalAssetNumber: string | null;
+  originalSerialNumber: string | null;
+  candidateEntryUuid: string | null;
+  rawValues: Record<string, string>;
+}
+
+export interface ImportDryRunReport {
+  batchId: string;
+  sourceFingerprint: string;
+  sourceFilename: string;
+  selectedSheet: string;
+  mappingVersion: string;
+  totalRows: number;
+  inserted: number;
+  matched: number;
+  conflicted: number;
+  rejected: number;
+  ignored: number;
+  columns: ImportColumnReport[];
+  rowOutcomes: ImportRowOutcome[];
+  blocking: boolean;
+  reconciliationBasis: string;
+}
+
+export interface ImportCommitInput {
+  batchId: string;
+  confirmed: boolean;
+  /** Import insertable rows even when conflicted/rejected rows remain. */
+  allowPartial?: boolean;
+}
+
+export interface ImportCommitResult {
+  batchId: string;
+  inserted: number;
+  matched: number;
+  conflicted: number;
+  rejected: number;
+  ignored: number;
+  remaining: number;
+  noop: number;
+  entriesChanged: boolean;
+  message: string;
 }
 
 export type InventoryMutationMode = "shared" | "local";
@@ -100,37 +218,15 @@ export interface ExcelExportResult {
   outputPath?: string;
 }
 
-export type UpdateStatus =
-  | "idle"
-  | "checking"
-  | "available"
-  | "not-available"
-  | "downloading"
-  | "ready"
-  | "installing"
-  | "error";
-
-export interface UpdateState {
-  available: boolean;
-  currentVersion: string;
-  downloadPhase?: "copying" | "verifying" | "ready";
-  downloadProgress?: number;
-  downloadedInstallerPath?: string;
-  error?: string;
-  installLogPath?: string;
-  installerPid?: number;
-  latestVersion?: string;
-  notes?: string;
-  publishedAt?: string;
-  status: UpdateStatus;
-}
-
 export interface FilterState {
   assetNumber: string;
   manufacturer: string;
   model: string;
   description: string;
   location: string;
+  calibrationRequirement: CalibrationRequirement | "all";
+  calibrationHealth: CalibrationHealth | "all";
+  dueWindow: DueWindow;
 }
 
 export interface InventoryQueryInput {
@@ -160,7 +256,11 @@ export interface ColumnConfig {
     | "description"
     | "projectName"
     | "location"
-    | "links";
+    | "links"
+    | "calibrationRequirement"
+    | "outToCalibration"
+    | "calibrationDueAt"
+    | "calibrationHealth";
   label: string;
   defaultVisible: boolean;
   sortable: boolean;
@@ -183,5 +283,9 @@ export const INVENTORY_COLUMNS = [
   { key: "description", label: "Description", defaultVisible: true, sortable: true },
   { key: "projectName", label: "Project", defaultVisible: false, sortable: true },
   { key: "location", label: "Location", defaultVisible: true, sortable: true },
+  { key: "calibrationRequirement", label: "Calibration", defaultVisible: true, sortable: true },
+  { key: "outToCalibration", label: "Out to cal", defaultVisible: true, sortable: true, align: "center" },
+  { key: "calibrationDueAt", label: "Calibration due", defaultVisible: true, sortable: true },
+  { key: "calibrationHealth", label: "Calibration health", defaultVisible: true, sortable: true },
   { key: "links", label: "Links", defaultVisible: true, sortable: true },
 ] as const satisfies readonly ColumnConfig[];

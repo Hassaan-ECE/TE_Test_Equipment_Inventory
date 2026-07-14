@@ -1,43 +1,46 @@
-# Paste this into a new chat (same folder)
-
-Open the workspace:
-
-```text
-C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
-```
-
-Then paste:
+# Paste this into a new chat opened on the repository folder
 
 ---
 
 Continue TE Test Equipment Inventory on this PC.
 
-**Active workspace only:**  
+**Active workspace only:**
+
 `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory`
 
-**Do not use as the app tree:**  
-`C:\Projects\Active\TE_Lab_Equipment_Inventory` (other-PC planning shell / broken git).  
-Planning content was imported from GitHub `Hassaan-ECE/TE_Lab_Equipment_Inventory` into `docs/planning/` and remapped to **Test Equipment** naming.
+Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree. It is an old planning/other-PC location.
 
-**Read first (in order):**
+**Read first, in order:**
+
 1. `docs/SESSION_HANDOFF.md`
 2. `docs/planning/DECISIONS.md`
-3. `README.md` (top sections: source truth + current status)
+3. `README.md`
 4. `AGENTS.md`
 
-**Product:** Tauri 2 + React + FeOxDB desktop app replacing Python TE equipment inventory. Focus: calibration, equipment identity, location. Same UX family as TE Parts + ME; not merged with components.
+**Current state:** v0.1 implementation candidate on the existing ME-family Tauri 2 + React + FeOxDB scaffold. ME Inventory `e092c73` is historical scaffold lineage and TE Parts `e444389` is a read-only sibling reference. This app is not a published production release and lab cutover is not complete.
 
-**Code state:** Full ME-family scaffold with partial rebrand (`com.te.test.equipment.inventory`). Domain still generic inventory — **no calibration model yet**. Updater/README still have ME leftovers. **No git** in this folder yet.
+**Stable identity:**
 
-**Identity (keep):** display name TE Test Equipment Inventory; id `com.te.test.equipment.inventory`; local DB under `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox`.
+- display: TE Test Equipment Inventory
+- package: `te-test-equipment-inventory`
+- Tauri id: `com.te.test.equipment.inventory` — do not change after installs without a migration plan
+- local DB: `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox`
 
-**Siblings:**  
-- ME base lineage: `C:\Projects\Active\Inventory_Apps\ME\ME_Inventory` @ `e092c73`  
-- TE Parts: `C:\Projects\Active\Inventory_Apps\TE\TE_Parts_Inventory` @ `e444389`
+**Implemented:** identity/updater hygiene; Local AppData compatibility copy; current-state calibration and derived health; timestamped verification; calibration-aware FeOxDB/sync/export; dry-run and confirmed idempotent CSV/Excel importer with provenance; live aggregate import profiling; calibration UI, filters, chips, and importer dialog. Former O-001 through O-008 are resolved by D-017 through D-025.
 
-**Do not:** freeze domain schema or build full cal UI before open decisions + live Excel profile (`data/import/`, gitignored).  
-**Do:** follow build sequence in handoff / DECISIONS; evidence before “works” claims.
+**Operations boundary:** shared synchronization is disabled by default behind `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED`; optional configuration uses `TE_TEST_EQUIPMENT_SHARED_ROOT` and `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY`. Sync is not a backup. Do not enable production shared mode, push, deploy, publish, install on lab PCs, delete lab data, or expand scope without owner authorization.
 
-**Ask me which next slice I want** if unclear: rebrand hygiene | close open decisions | profile Excel export | domain/cal fields | init git | other.
+**Remaining gates:**
+
+1. independent post-change review;
+2. Boss lint/test/build/Tauri/smoke verification and exact blocker reporting;
+3. live import correction — aggregate profile is available, but 50 identity conflicts and eight invalid-date rows block commit;
+4. protected import/restore rehearsal and rollback plan;
+5. department shared-root/ACL/backup ownership and real two-machine proof;
+6. explicit cutover authorization.
+
+Keep v0.1 boundaries: current calibration state only, no `CalibrationEvent` history store, no managed media vault, no production shared-sync enablement, and no Python retirement.
+
+Use Workers for tracked project edits, Managers/Reviewers read-only, and require independent review plus Boss verification before claiming completion.
 
 ---

@@ -135,13 +135,13 @@ mod tests {
         assert_eq!(inventory_rows[0], inventory_headers());
         assert_eq!(inventory_rows[1][0], "ME-1");
         assert_eq!(inventory_rows[1][2], "2");
-        assert_eq!(inventory_rows[1][12], "Yes");
+        assert_eq!(inventory_rows[1][21], "2026-01-01T00:00:00Z");
         assert_eq!(inventory_rows.len(), 2);
 
         let archive_rows = worksheet_rows(&path, "xl/worksheets/sheet2.xml", &shared_strings);
         assert_eq!(archive_rows[0], inventory_headers());
         assert_eq!(archive_rows[1][0], "ME-2");
-        assert_eq!(archive_rows[1][13], "Yes");
+        assert_eq!(archive_rows[1][23], "Yes");
         assert_eq!(archive_rows.len(), 2);
 
         let _ = fs::remove_file(path);
@@ -171,7 +171,17 @@ mod tests {
                 "active",
                 "working",
                 "Good",
-                "Yes",
+                "Unknown",
+                "",
+                "",
+                "",
+                "",
+                "unknown",
+                "",
+                "",
+                "",
+                "2026-01-01T00:00:00Z",
+                "",
                 "",
                 r"C:\Pictures\42.jpg",
                 "https://example.com",
@@ -208,6 +218,61 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
+    #[test]
+    fn calibration_export_uses_injected_date_and_includes_stored_verification_fields() {
+        let path = temp_xlsx_path("calibration-contract");
+        let mut entry = test_entry("9", false, false, Some(1.0));
+        entry.calibration_requirement = crate::model::CalibrationRequirement::Required;
+        entry.out_to_calibration = false;
+        entry.last_calibrated_at = Some("2026-01-13".to_string());
+        entry.calibration_due_at = Some("2026-08-12".to_string());
+        entry.calibration_interval_months = Some(7);
+        entry.certificate_ref = Some("CERT-9".to_string());
+        entry.calibration_vendor = Some("Vendor 9".to_string());
+        entry.calibration_notes = Some("Certificate on vendor portal".to_string());
+        entry.verified_at = Some("2026-07-13T12:00:00Z".to_string());
+        entry.verified_by = Some("Taylor".to_string());
+
+        workbook::write_inventory_workbook_for_date(
+            &[entry],
+            &path,
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 13).unwrap(),
+        )
+        .unwrap();
+
+        let shared_strings = shared_strings(&path);
+        let rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
+        let headers = &rows[0];
+        let data = &rows[1];
+        for required in [
+            "Calibration Requirement",
+            "Out to Calibration",
+            "Last Calibrated At",
+            "Calibration Due At",
+            "Calibration Interval Months",
+            "Calibration Health",
+            "Certificate Ref",
+            "Calibration Vendor",
+            "Calibration Notes",
+            "Verified At",
+            "Verified By",
+        ] {
+            assert!(
+                headers.contains(&required.to_string()),
+                "missing {required}"
+            );
+        }
+        let value =
+            |header: &str| data[headers.iter().position(|value| value == header).unwrap()].as_str();
+        assert_eq!(value("Calibration Requirement"), "Required");
+        assert_eq!(value("Calibration Health"), "due_soon");
+        assert_eq!(value("Calibration Interval Months"), "7");
+        assert_eq!(value("Verified At"), "2026-07-13T12:00:00Z");
+        assert_eq!(value("Verified By"), "Taylor");
+
+        let _ = fs::remove_file(path);
+    }
+
     fn test_entry(id: &str, archived: bool, verified: bool, qty: Option<f64>) -> InventoryEntry {
         InventoryEntry {
             id: id.to_string(),
@@ -227,7 +292,17 @@ mod tests {
             lifecycle_status: if archived { "scrapped" } else { "active" }.to_string(),
             working_status: "working".to_string(),
             condition: "Good".to_string(),
-            verified_in_survey: verified,
+            calibration_requirement: crate::model::CalibrationRequirement::Unknown,
+            out_to_calibration: false,
+            last_calibrated_at: None,
+            calibration_due_at: None,
+            calibration_interval_months: None,
+            certificate_ref: None,
+            calibration_vendor: None,
+            calibration_notes: None,
+            verified_at: verified.then(|| "2026-01-01T00:00:00Z".to_string()),
+            verified_by: None,
+            import_provenance: None,
             archived,
             manual_entry: false,
             picture_path: format!(r"C:\Pictures\{id}.jpg"),

@@ -41,7 +41,7 @@ fn quarantine_deprecated_databases(
 ) -> CommandResult<DeprecatedDbQuarantineReport> {
     let app_data_dir = app
         .path()
-        .app_data_dir()
+        .app_local_data_dir()
         .map_err(|error| error.to_string())?;
     let backup_dir = app_data_dir
         .join(BACKUP_DIR_NAME)
@@ -159,10 +159,7 @@ fn move_file(source: &Path, target: &Path) -> std::io::Result<()> {
 }
 
 fn file_safe_timestamp() -> String {
-    now_timestamp()
-        .replace(':', "-")
-        .replace('.', "-")
-        .replace('Z', "z")
+    now_timestamp().replace([':', '.'], "-").replace('Z', "z")
 }
 
 #[cfg(test)]
@@ -174,7 +171,7 @@ mod tests {
     #[test]
     fn unique_backup_path_keeps_existing_backup_files() {
         let root = env::temp_dir().join(format!(
-            "me-inventory-db-quarantine-{}",
+            "te-test-equipment-db-quarantine-{}",
             Uuid::new_v4().simple()
         ));
         fs::create_dir_all(&root).unwrap();
@@ -191,8 +188,10 @@ mod tests {
 
     #[test]
     fn move_file_falls_back_to_copy_remove_semantics() {
-        let root =
-            env::temp_dir().join(format!("me-inventory-db-move-{}", Uuid::new_v4().simple()));
+        let root = env::temp_dir().join(format!(
+            "te-test-equipment-db-move-{}",
+            Uuid::new_v4().simple()
+        ));
         fs::create_dir_all(&root).unwrap();
         let source = root.join(format!("{}{}", OLD_DB_STEMS[1], DB_EXTENSION));
         let target = root

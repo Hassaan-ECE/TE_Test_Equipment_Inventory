@@ -74,7 +74,7 @@ export function useInventoryEntryMutations({
       return;
     }
 
-    const nextVerified = !entriesById.get(entryId)?.verifiedInSurvey;
+    const nextVerified = !entriesById.get(entryId)?.verifiedAt;
 
     if (dataSource === "desktop" && window.inventoryDesktop?.toggleVerifiedEntry) {
       try {
@@ -84,16 +84,16 @@ export function useInventoryEntryMutations({
         scheduleDesktopSync();
         return;
       } catch {
-        announceStatus("Could not update the ME Inventory database.");
+        announceStatus("Could not update the TE Test Equipment Inventory database.");
         return;
       }
     }
 
-    setEntries((current) =>
-      current.map((entry) =>
-        entry.id === entryId ? { ...entry, verifiedInSurvey: !entry.verifiedInSurvey } : entry,
-      ),
-    );
+    setEntries((current) => current.map((entry) => {
+      if (entry.id !== entryId) return entry;
+      const nowVerified = !entry.verifiedAt;
+      return { ...entry, verifiedAt: nowVerified ? new Date().toISOString() : undefined, verifiedBy: nowVerified ? entry.verifiedBy : undefined, updatedAt: new Date().toISOString() };
+    }));
     announceStatus("Verified state updated locally.");
   }
 

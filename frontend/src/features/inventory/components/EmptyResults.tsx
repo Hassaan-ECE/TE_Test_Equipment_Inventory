@@ -11,7 +11,7 @@ interface EmptyResultsProps {
 export function EmptyResults({ onAddEntry, query, scope }: EmptyResultsProps) {
   if (scope === "archive") {
     return (
-      <section className="flex h-full min-h-0 flex-1 rounded-3xl border border-border/70 bg-card/80 shadow-sm">
+      <section className="flex h-full min-h-0 flex-1 rounded-xl border border-border/70 bg-card/80 shadow-sm">
         <Empty>
           <EmptyHeader>
             <EmptyTitle>{query.trim() ? "No archived matches" : "No archived entries yet"}</EmptyTitle>
@@ -27,7 +27,7 @@ export function EmptyResults({ onAddEntry, query, scope }: EmptyResultsProps) {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-1 rounded-3xl border border-border/70 bg-card/80 shadow-sm">
+    <section className="flex h-full min-h-0 flex-1 rounded-xl border border-border/70 bg-card/80 shadow-sm">
       <Empty>
         <EmptyHeader>
           <EmptyTitle>Can&apos;t find what you&apos;re looking for?</EmptyTitle>

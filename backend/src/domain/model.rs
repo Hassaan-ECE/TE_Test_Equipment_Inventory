@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use chrono::{SecondsFormat, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Days, NaiveDate, SecondsFormat, Utc};
+use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 use uuid::Uuid;
 
@@ -11,12 +11,53 @@ const STANDARD_TEXT_LIMIT: usize = 512;
 const LONG_TEXT_LIMIT: usize = 4_000;
 const NOTES_TEXT_LIMIT: usize = 8_000;
 const PATH_TEXT_LIMIT: usize = 2_048;
+const MAX_CALIBRATION_INTERVAL_MONTHS: u16 = 1_200;
 const IMAGE_PATH_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"];
 const LINK_PROTOCOLS: &[&str] = &["http", "https", "mailto"];
 const PICTURE_URL_PROTOCOLS: &[&str] = &["http", "https"];
 pub(crate) type CommandResult<T> = Result<T, String>;
+pub(crate) const LEGACY_VERIFIED_APPROXIMATION_LABEL: &str =
+    "Legacy verified flag — timestamp approximated from updatedAt";
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CalibrationRequirement {
+    Required,
+    ReferenceOnly,
+    NotRequired,
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CalibrationHealth {
+    MissingDue,
+    Overdue,
+    DueSoon,
+    Current,
+    NotApplicable,
+    Unknown,
+    OutToCal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImportProvenance {
+    pub batch_id: String,
+    pub source_filename: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_sheet: Option<String>,
+    pub source_row: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_asset_number: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_serial_number: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InventoryEntry {
     pub id: String,
@@ -52,7 +93,27 @@ pub(crate) struct InventoryEntry {
     #[serde(default)]
     pub condition: String,
     #[serde(default)]
-    pub verified_in_survey: bool,
+    pub calibration_requirement: CalibrationRequirement,
+    #[serde(default)]
+    pub out_to_calibration: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_calibrated_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration_due_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration_interval_months: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub certificate_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration_vendor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration_notes: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_provenance: Option<ImportProvenance>,
     #[serde(default)]
     pub archived: bool,
     #[serde(default)]
@@ -63,6 +124,114 @@ pub(crate) struct InventoryEntry {
     pub created_at: String,
     #[serde(default)]
     pub updated_at: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct InventoryEntryWire {
+    id: String,
+    database_id: Option<i64>,
+    entry_uuid: String,
+    asset_number: String,
+    serial_number: String,
+    qty: Option<f64>,
+    manufacturer: String,
+    model: String,
+    description: String,
+    project_name: String,
+    location: String,
+    assigned_to: String,
+    links: String,
+    notes: String,
+    lifecycle_status: String,
+    working_status: String,
+    condition: String,
+    calibration_requirement: CalibrationRequirement,
+    out_to_calibration: bool,
+    last_calibrated_at: Option<String>,
+    calibration_due_at: Option<String>,
+    calibration_interval_months: Option<u16>,
+    certificate_ref: Option<String>,
+    calibration_vendor: Option<String>,
+    calibration_notes: Option<String>,
+    verified_at: Option<String>,
+    verified_by: Option<String>,
+    import_provenance: Option<ImportProvenance>,
+    verified_in_survey: bool,
+    archived: bool,
+    manual_entry: bool,
+    picture_path: String,
+    created_at: String,
+    updated_at: String,
+}
+
+impl<'de> Deserialize<'de> for InventoryEntry {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self::from_wire(InventoryEntryWire::deserialize(
+            deserializer,
+        )?))
+    }
+}
+
+impl InventoryEntry {
+    fn from_wire(wire: InventoryEntryWire) -> Self {
+        let mut verified_at = normalize_optional_string(wire.verified_at);
+        let mut verified_by = normalize_optional_string(wire.verified_by);
+        if verified_at.is_none() && verified_by.is_none() && wire.verified_in_survey {
+            let updated_at = wire.updated_at.trim();
+            if DateTime::parse_from_rfc3339(updated_at).is_ok() {
+                verified_at = Some(updated_at.to_string());
+                verified_by = Some(LEGACY_VERIFIED_APPROXIMATION_LABEL.to_string());
+            }
+        }
+
+        Self {
+            id: wire.id,
+            database_id: wire.database_id,
+            entry_uuid: wire.entry_uuid,
+            asset_number: wire.asset_number,
+            serial_number: wire.serial_number,
+            qty: wire.qty,
+            manufacturer: wire.manufacturer,
+            model: wire.model,
+            description: wire.description,
+            project_name: wire.project_name,
+            location: wire.location,
+            assigned_to: wire.assigned_to,
+            links: wire.links,
+            notes: wire.notes,
+            lifecycle_status: if wire.lifecycle_status.is_empty() {
+                default_lifecycle_status()
+            } else {
+                wire.lifecycle_status
+            },
+            working_status: if wire.working_status.is_empty() {
+                default_working_status()
+            } else {
+                wire.working_status
+            },
+            condition: wire.condition,
+            calibration_requirement: wire.calibration_requirement,
+            out_to_calibration: wire.out_to_calibration,
+            last_calibrated_at: normalize_optional_string(wire.last_calibrated_at),
+            calibration_due_at: normalize_optional_string(wire.calibration_due_at),
+            calibration_interval_months: wire.calibration_interval_months,
+            certificate_ref: normalize_optional_string(wire.certificate_ref),
+            calibration_vendor: normalize_optional_string(wire.calibration_vendor),
+            calibration_notes: normalize_optional_string(wire.calibration_notes),
+            verified_at,
+            verified_by,
+            import_provenance: wire.import_provenance,
+            archived: wire.archived,
+            manual_entry: wire.manual_entry,
+            picture_path: wire.picture_path,
+            created_at: wire.created_at,
+            updated_at: wire.updated_at,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -82,7 +251,16 @@ pub(crate) struct InventoryEntryInput {
     pub lifecycle_status: String,
     pub working_status: String,
     pub condition: String,
-    pub verified_in_survey: bool,
+    pub calibration_requirement: CalibrationRequirement,
+    pub out_to_calibration: bool,
+    pub last_calibrated_at: Option<String>,
+    pub calibration_due_at: Option<String>,
+    pub calibration_interval_months: Option<u16>,
+    pub certificate_ref: Option<String>,
+    pub calibration_vendor: Option<String>,
+    pub calibration_notes: Option<String>,
+    pub verified_at: Option<String>,
+    pub verified_by: Option<String>,
     pub archived: bool,
     pub picture_path: Option<String>,
 }
@@ -249,7 +427,16 @@ pub(crate) fn normalize_entry_input(input: InventoryEntryInput) -> InventoryEntr
             "unknown",
         ),
         condition: input.condition.trim().to_string(),
-        verified_in_survey: input.verified_in_survey,
+        calibration_requirement: input.calibration_requirement,
+        out_to_calibration: input.out_to_calibration,
+        last_calibrated_at: normalize_optional_string(input.last_calibrated_at),
+        calibration_due_at: normalize_optional_string(input.calibration_due_at),
+        calibration_interval_months: input.calibration_interval_months,
+        certificate_ref: normalize_optional_string(input.certificate_ref),
+        calibration_vendor: normalize_optional_string(input.calibration_vendor),
+        calibration_notes: normalize_optional_string(input.calibration_notes),
+        verified_at: normalize_optional_string(input.verified_at),
+        verified_by: normalize_optional_string(input.verified_by),
         archived: input.archived,
         picture_path: input.picture_path.map(|path| path.trim().to_string()),
     }
@@ -289,6 +476,50 @@ pub(crate) fn validate_entry_input(input: &InventoryEntryInput) -> CommandResult
     validate_links(&input.links)?;
     validate_text_length("Notes", &input.notes, NOTES_TEXT_LIMIT)?;
     validate_text_length("Condition", &input.condition, STANDARD_TEXT_LIMIT)?;
+    let last_calibrated_at =
+        validate_optional_date("Last calibrated date", input.last_calibrated_at.as_deref())?;
+    let calibration_due_at =
+        validate_optional_date("Calibration due date", input.calibration_due_at.as_deref())?;
+    if let (Some(last), Some(due)) = (last_calibrated_at, calibration_due_at) {
+        if due < last {
+            return Err(
+                "Calibration due date must be on or after the last calibrated date.".to_string(),
+            );
+        }
+    }
+    if let Some(interval) = input.calibration_interval_months {
+        if interval == 0 || interval > MAX_CALIBRATION_INTERVAL_MONTHS {
+            return Err(format!(
+                "Calibration interval must be between 1 and {MAX_CALIBRATION_INTERVAL_MONTHS} months."
+            ));
+        }
+    }
+    validate_optional_text_length(
+        "Certificate reference",
+        input.certificate_ref.as_deref(),
+        STANDARD_TEXT_LIMIT,
+    )?;
+    validate_optional_text_length(
+        "Calibration vendor",
+        input.calibration_vendor.as_deref(),
+        STANDARD_TEXT_LIMIT,
+    )?;
+    validate_optional_text_length(
+        "Calibration notes",
+        input.calibration_notes.as_deref(),
+        NOTES_TEXT_LIMIT,
+    )?;
+    if let Some(verified_at) = input.verified_at.as_deref() {
+        DateTime::parse_from_rfc3339(verified_at)
+            .map_err(|_| "Verified at must be a valid RFC 3339 timestamp.".to_string())?;
+    } else if input.verified_by.is_some() {
+        return Err("Verified at is required when a verifier is provided.".to_string());
+    }
+    validate_optional_text_length(
+        "Verified by",
+        input.verified_by.as_deref(),
+        STANDARD_TEXT_LIMIT,
+    )?;
     if let Some(picture_path) = &input.picture_path {
         validate_text_length("Picture path", picture_path, PATH_TEXT_LIMIT)?;
         validate_picture_path(picture_path)?;
@@ -317,7 +548,17 @@ pub(crate) fn create_entry_from_input(id: i64, input: InventoryEntryInput) -> In
         lifecycle_status: input.lifecycle_status,
         working_status: input.working_status,
         condition: input.condition,
-        verified_in_survey: input.verified_in_survey,
+        calibration_requirement: input.calibration_requirement,
+        out_to_calibration: input.out_to_calibration,
+        last_calibrated_at: input.last_calibrated_at,
+        calibration_due_at: input.calibration_due_at,
+        calibration_interval_months: input.calibration_interval_months,
+        certificate_ref: input.certificate_ref,
+        calibration_vendor: input.calibration_vendor,
+        calibration_notes: input.calibration_notes,
+        verified_at: input.verified_at,
+        verified_by: input.verified_by,
+        import_provenance: None,
         archived: input.archived,
         manual_entry: true,
         picture_path: input.picture_path.unwrap_or_default(),
@@ -344,11 +585,110 @@ pub(crate) fn update_entry_from_input(
     entry.lifecycle_status = input.lifecycle_status;
     entry.working_status = input.working_status;
     entry.condition = input.condition;
-    entry.verified_in_survey = input.verified_in_survey;
+    entry.calibration_requirement = input.calibration_requirement;
+    entry.out_to_calibration = input.out_to_calibration;
+    entry.last_calibrated_at = input.last_calibrated_at;
+    entry.calibration_due_at = input.calibration_due_at;
+    entry.calibration_interval_months = input.calibration_interval_months;
+    entry.certificate_ref = input.certificate_ref;
+    entry.calibration_vendor = input.calibration_vendor;
+    entry.calibration_notes = input.calibration_notes;
+    entry.verified_at = input.verified_at;
+    entry.verified_by = input.verified_by;
     entry.archived = input.archived;
     entry.picture_path = input.picture_path.unwrap_or_default();
     entry.updated_at = now_timestamp();
     entry
+}
+
+impl CalibrationRequirement {
+    pub(crate) const fn display_label(self) -> &'static str {
+        match self {
+            Self::Required => "Required",
+            Self::ReferenceOnly => "Reference only",
+            Self::NotRequired => "Not required",
+            Self::Unknown => "Unknown",
+        }
+    }
+}
+
+impl CalibrationHealth {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::MissingDue => "missing_due",
+            Self::Overdue => "overdue",
+            Self::DueSoon => "due_soon",
+            Self::Current => "current",
+            Self::NotApplicable => "not_applicable",
+            Self::Unknown => "unknown",
+            Self::OutToCal => "out_to_cal",
+        }
+    }
+}
+
+pub(crate) fn derive_calibration_health(
+    entry: &InventoryEntry,
+    local_date: NaiveDate,
+    due_soon_days: u64,
+) -> Option<CalibrationHealth> {
+    if entry.archived {
+        return None;
+    }
+
+    match entry.calibration_requirement {
+        CalibrationRequirement::ReferenceOnly | CalibrationRequirement::NotRequired => {
+            return Some(CalibrationHealth::NotApplicable);
+        }
+        CalibrationRequirement::Unknown => return Some(CalibrationHealth::Unknown),
+        CalibrationRequirement::Required => {}
+    }
+    if entry.out_to_calibration {
+        return Some(CalibrationHealth::OutToCal);
+    }
+
+    let Some(due_date) = entry.calibration_due_at.as_deref().and_then(parse_date) else {
+        return Some(CalibrationHealth::MissingDue);
+    };
+    if due_date < local_date {
+        return Some(CalibrationHealth::Overdue);
+    }
+    let due_soon_limit = local_date.checked_add_days(Days::new(due_soon_days));
+    if due_soon_limit.is_some_and(|limit| due_date <= limit) {
+        Some(CalibrationHealth::DueSoon)
+    } else {
+        Some(CalibrationHealth::Current)
+    }
+}
+
+pub(crate) fn validate_inventory_entry(entry: &InventoryEntry) -> CommandResult<()> {
+    validate_entry_input(&InventoryEntryInput {
+        asset_number: entry.asset_number.clone(),
+        serial_number: entry.serial_number.clone(),
+        qty: entry.qty,
+        manufacturer: entry.manufacturer.clone(),
+        model: entry.model.clone(),
+        description: entry.description.clone(),
+        project_name: entry.project_name.clone(),
+        location: entry.location.clone(),
+        assigned_to: entry.assigned_to.clone(),
+        links: entry.links.clone(),
+        notes: entry.notes.clone(),
+        lifecycle_status: entry.lifecycle_status.clone(),
+        working_status: entry.working_status.clone(),
+        condition: entry.condition.clone(),
+        calibration_requirement: entry.calibration_requirement,
+        out_to_calibration: entry.out_to_calibration,
+        last_calibrated_at: entry.last_calibrated_at.clone(),
+        calibration_due_at: entry.calibration_due_at.clone(),
+        calibration_interval_months: entry.calibration_interval_months,
+        certificate_ref: entry.certificate_ref.clone(),
+        calibration_vendor: entry.calibration_vendor.clone(),
+        calibration_notes: entry.calibration_notes.clone(),
+        verified_at: entry.verified_at.clone(),
+        verified_by: entry.verified_by.clone(),
+        archived: entry.archived,
+        picture_path: Some(entry.picture_path.clone()),
+    })
 }
 
 fn normalize_enum(value: String, allowed: &[&str], fallback: &str) -> String {
@@ -368,6 +708,40 @@ fn validate_text_length(field_name: &str, value: &str, max_chars: usize) -> Comm
     }
 
     Ok(())
+}
+
+fn normalize_optional_string(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    })
+}
+
+fn validate_optional_text_length(
+    field_name: &str,
+    value: Option<&str>,
+    max_chars: usize,
+) -> CommandResult<()> {
+    if let Some(value) = value {
+        validate_text_length(field_name, value, max_chars)?;
+    }
+    Ok(())
+}
+
+fn parse_date(value: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()
+}
+
+fn validate_optional_date(
+    field_name: &str,
+    value: Option<&str>,
+) -> CommandResult<Option<NaiveDate>> {
+    value
+        .map(|value| {
+            parse_date(value)
+                .ok_or_else(|| format!("{field_name} must be a valid date in YYYY-MM-DD format."))
+        })
+        .transpose()
 }
 
 fn validate_links(value: &str) -> CommandResult<()> {
@@ -541,5 +915,248 @@ mod tests {
         assert!(validate_entry_input(&invalid)
             .unwrap_err()
             .contains("Picture path"));
+    }
+
+    #[test]
+    fn calibration_health_obeys_precedence_and_due_boundaries() {
+        let today = NaiveDate::from_ymd_opt(2026, 7, 13).unwrap();
+        let mut entry = create_entry_from_input(
+            1,
+            normalize_entry_input(InventoryEntryInput {
+                description: "Reference meter".to_string(),
+                calibration_requirement: CalibrationRequirement::Required,
+                calibration_due_at: Some("2026-07-12".to_string()),
+                ..InventoryEntryInput::default()
+            }),
+        );
+
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::Overdue)
+        );
+        entry.calibration_due_at = Some("2026-07-13".to_string());
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::DueSoon)
+        );
+        entry.calibration_due_at = Some("2026-08-12".to_string());
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::DueSoon)
+        );
+        entry.calibration_due_at = Some("2026-08-13".to_string());
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::Current)
+        );
+        entry.calibration_due_at = None;
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::MissingDue)
+        );
+
+        entry.out_to_calibration = true;
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::OutToCal)
+        );
+        entry.calibration_requirement = CalibrationRequirement::ReferenceOnly;
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::NotApplicable)
+        );
+        entry.calibration_requirement = CalibrationRequirement::Unknown;
+        assert_eq!(
+            derive_calibration_health(&entry, today, 30),
+            Some(CalibrationHealth::Unknown)
+        );
+        entry.archived = true;
+        assert_eq!(derive_calibration_health(&entry, today, 30), None);
+    }
+
+    #[test]
+    fn calibration_normalization_and_validation_preserve_explicit_due_authority() {
+        let input = normalize_entry_input(InventoryEntryInput {
+            description: "Oscilloscope".to_string(),
+            calibration_requirement: CalibrationRequirement::Required,
+            last_calibrated_at: Some(" 2026-07-10 ".to_string()),
+            calibration_due_at: Some(" 2026-07-09 ".to_string()),
+            calibration_interval_months: Some(12),
+            certificate_ref: Some("  CERT-123 ".to_string()),
+            calibration_vendor: Some("   ".to_string()),
+            calibration_notes: Some("  vendor note  ".to_string()),
+            verified_at: Some(" 2026-07-13T12:00:00Z ".to_string()),
+            verified_by: Some("  Avery  ".to_string()),
+            ..InventoryEntryInput::default()
+        });
+
+        assert_eq!(input.last_calibrated_at.as_deref(), Some("2026-07-10"));
+        assert_eq!(input.calibration_due_at.as_deref(), Some("2026-07-09"));
+        assert_eq!(input.certificate_ref.as_deref(), Some("CERT-123"));
+        assert_eq!(input.calibration_vendor, None);
+        assert_eq!(input.calibration_notes.as_deref(), Some("vendor note"));
+        assert_eq!(input.verified_at.as_deref(), Some("2026-07-13T12:00:00Z"));
+        assert_eq!(input.verified_by.as_deref(), Some("Avery"));
+        assert!(validate_entry_input(&input)
+            .unwrap_err()
+            .contains("due date"));
+
+        let mut invalid_date = input.clone();
+        invalid_date.calibration_due_at = Some("2026-02-30".to_string());
+        assert!(validate_entry_input(&invalid_date)
+            .unwrap_err()
+            .contains("Calibration due date"));
+
+        let mut zero_interval = input.clone();
+        zero_interval.last_calibrated_at = None;
+        zero_interval.calibration_due_at = None;
+        zero_interval.calibration_interval_months = Some(0);
+        assert!(validate_entry_input(&zero_interval)
+            .unwrap_err()
+            .contains("interval"));
+
+        let mut invalid_verified_at = zero_interval;
+        invalid_verified_at.calibration_interval_months = Some(12);
+        invalid_verified_at.verified_at = Some("yesterday".to_string());
+        assert!(validate_entry_input(&invalid_verified_at)
+            .unwrap_err()
+            .contains("Verified at"));
+    }
+
+    #[test]
+    fn legacy_verified_true_uses_valid_updated_at_with_explicit_approximation_label() {
+        let legacy = serde_json::json!({
+            "id": "1",
+            "entryUuid": "legacy-1",
+            "description": "Legacy meter",
+            "verifiedInSurvey": true,
+            "updatedAt": "2026-07-13T12:00:00Z"
+        });
+
+        let decoded: InventoryEntry = serde_json::from_value(legacy).unwrap();
+
+        assert_eq!(decoded.verified_at.as_deref(), Some("2026-07-13T12:00:00Z"));
+        assert_eq!(
+            decoded.verified_by.as_deref(),
+            Some(LEGACY_VERIFIED_APPROXIMATION_LABEL)
+        );
+        let serialized = serde_json::to_value(&decoded).unwrap();
+        assert!(serialized.get("verifiedInSurvey").is_none());
+        assert_eq!(
+            serialized
+                .get("verifiedBy")
+                .and_then(|value| value.as_str()),
+            Some(LEGACY_VERIFIED_APPROXIMATION_LABEL)
+        );
+        let round_tripped: InventoryEntry = serde_json::from_value(serialized).unwrap();
+        assert_eq!(
+            round_tripped.verified_at.as_deref(),
+            Some("2026-07-13T12:00:00Z")
+        );
+        assert_eq!(
+            round_tripped.verified_by.as_deref(),
+            Some(LEGACY_VERIFIED_APPROXIMATION_LABEL)
+        );
+    }
+
+    #[test]
+    fn legacy_verified_missing_or_false_maps_to_no_verification() {
+        for legacy in [
+            serde_json::json!({
+                "id": "1",
+                "entryUuid": "legacy-missing",
+                "description": "Legacy meter",
+                "updatedAt": "2026-07-13T12:00:00Z"
+            }),
+            serde_json::json!({
+                "id": "2",
+                "entryUuid": "legacy-false",
+                "description": "Legacy meter",
+                "verifiedInSurvey": false,
+                "updatedAt": "2026-07-13T12:00:00Z"
+            }),
+        ] {
+            let decoded: InventoryEntry = serde_json::from_value(legacy).unwrap();
+            assert_eq!(decoded.verified_at, None);
+            assert_eq!(decoded.verified_by, None);
+        }
+    }
+
+    #[test]
+    fn legacy_verified_true_without_valid_updated_at_does_not_invent_timestamp() {
+        for updated_at in [None, Some("not-a-timestamp")] {
+            let mut legacy = serde_json::json!({
+                "id": "1",
+                "entryUuid": "legacy-1",
+                "description": "Legacy meter",
+                "verifiedInSurvey": true
+            });
+            if let Some(updated_at) = updated_at {
+                legacy["updatedAt"] = serde_json::Value::String(updated_at.to_string());
+            }
+
+            let decoded: InventoryEntry = serde_json::from_value(legacy).unwrap();
+
+            assert_eq!(decoded.verified_at, None);
+            assert_eq!(decoded.verified_by, None);
+        }
+    }
+
+    #[test]
+    fn explicit_verification_fields_win_over_legacy_flag() {
+        let mixed = serde_json::json!({
+            "id": "1",
+            "entryUuid": "legacy-1",
+            "description": "Legacy meter",
+            "verifiedInSurvey": true,
+            "updatedAt": "2026-07-13T12:00:00Z",
+            "verifiedAt": "2026-07-14T13:00:00Z",
+            "verifiedBy": "Taylor"
+        });
+
+        let decoded: InventoryEntry = serde_json::from_value(mixed).unwrap();
+
+        assert_eq!(decoded.verified_at.as_deref(), Some("2026-07-14T13:00:00Z"));
+        assert_eq!(decoded.verified_by.as_deref(), Some("Taylor"));
+    }
+
+    #[test]
+    fn import_provenance_round_trips_and_normal_edits_preserve_it() {
+        let encoded = serde_json::json!({
+            "id": "8",
+            "entryUuid": "imported-8",
+            "description": "Imported meter",
+            "importProvenance": {
+                "batchId": "sha256:batch",
+                "sourceFilename": "inventory.xlsx",
+                "sourceSheet": "Equipment",
+                "sourceRow": 12,
+                "originalId": "legacy-88",
+                "originalAssetNumber": " TE-008 ",
+                "originalSerialNumber": "SN-008"
+            }
+        });
+        let entry: InventoryEntry = serde_json::from_value(encoded).unwrap();
+
+        let updated = update_entry_from_input(
+            entry.clone(),
+            normalize_entry_input(InventoryEntryInput {
+                description: "Edited meter".to_string(),
+                ..InventoryEntryInput::default()
+            }),
+        );
+
+        assert_eq!(updated.import_provenance, entry.import_provenance);
+        assert_eq!(
+            updated
+                .import_provenance
+                .as_ref()
+                .and_then(|value| value.source_sheet.as_deref()),
+            Some("Equipment")
+        );
+        assert_eq!(
+            serde_json::to_value(&updated).unwrap()["importProvenance"]["sourceRow"],
+            12
+        );
     }
 }

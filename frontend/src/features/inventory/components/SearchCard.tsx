@@ -1,63 +1,87 @@
-import type { ReactNode } from "react";
+import { useState } from "react";
 
 import { Input } from "@/shared/components/ui/input";
-import { Toggle } from "@/shared/components/ui/toggle";
-import type { InventoryScope } from "@/features/inventory/types";
+import type { ColumnConfig, ColumnKey, FilterState, InventoryScope } from "@/features/inventory/types";
+import { FilterPanel } from "@/features/inventory/components/FilterPanel";
+import { ViewSettingsMenu } from "@/features/inventory/components/ViewSettingsMenu";
+import { cn } from "@/shared/lib/utils";
 
 interface SearchCardProps {
   colorRows: boolean;
-  columnMenu: ReactNode;
+  columns: readonly ColumnConfig[];
+  columnVisibility: Record<ColumnKey, boolean>;
+  filters: FilterState;
   filtersOpen: boolean;
   onColorRowsChange: (nextValue: boolean) => void;
+  onFilterChange: (field: keyof FilterState, value: string) => void;
+  onFiltersClear: () => void;
   onFiltersToggle: () => void;
   onQueryChange: (value: string) => void;
+  onToggleColumn: (columnKey: ColumnKey) => void;
   query: string;
-  resultsLabel: string;
   scope: InventoryScope;
 }
 
 export function SearchCard({
   colorRows,
-  columnMenu,
+  columns,
+  columnVisibility,
+  filters,
   filtersOpen,
   onColorRowsChange,
+  onFilterChange,
+  onFiltersClear,
   onFiltersToggle,
   onQueryChange,
+  onToggleColumn,
   query,
-  resultsLabel,
   scope,
 }: SearchCardProps) {
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-5">
-      <Input
-        aria-label="Inventory search"
-        inputClassName="h-12 px-4 text-base leading-12"
-        placeholder={
-          scope === "archive"
-            ? "Search archived entries by asset, serial, maker, model, description, location, or notes"
-            : "Search entries by asset, serial, maker, model, description, location, status, or notes"
-        }
-        value={query}
-        onChange={(event) => onQueryChange(event.currentTarget.value)}
-      />
+  // Only elevate above the table while settings is open — otherwise stay under the app header
+  // so Export / other header menus are not covered by this card.
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{resultsLabel}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-background/70 px-2 py-1 text-xs text-muted-foreground">
-            <Toggle aria-label="Color rows" pressed={colorRows} onPressedChange={onColorRowsChange} />
-            <span>Color Rows</span>
-          </div>
-          <button
-            className="inline-flex h-8 items-center justify-center rounded-lg border border-input bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent/50"
-            type="button"
-            onClick={onFiltersToggle}
-          >
-            {filtersOpen ? "Hide Filters" : "Filters"}
-          </button>
-          {columnMenu}
+  return (
+    <section
+      className={cn(
+        "relative shrink-0 rounded-xl border border-border/70 bg-card/80 p-2 shadow-sm sm:p-2.5",
+        settingsOpen ? "z-50" : "z-0",
+      )}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <Input
+            aria-label="Inventory search"
+            inputClassName="h-9 px-3 text-sm"
+            placeholder={
+              scope === "archive"
+                ? "Search archived entries by asset, serial, maker, model, description, location, or notes"
+                : "Search entries by asset, serial, maker, model, description, location, status, or notes"
+            }
+            value={query}
+            onChange={(event) => onQueryChange(event.currentTarget.value)}
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end">
+          <ViewSettingsMenu
+            colorRows={colorRows}
+            columns={columns}
+            filtersOpen={filtersOpen}
+            visibility={columnVisibility}
+            onColorRowsChange={onColorRowsChange}
+            onFiltersToggle={onFiltersToggle}
+            onOpenChange={setSettingsOpen}
+            onToggleColumn={onToggleColumn}
+          />
         </div>
       </div>
+
+      {filtersOpen ? (
+        <div className="mt-2 border-t border-border/60 pt-2">
+          <FilterPanel compact filters={filters} onChange={onFilterChange} onClear={onFiltersClear} />
+        </div>
+      ) : null}
     </section>
   );
 }

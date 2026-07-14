@@ -1,10 +1,14 @@
 use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_dialog::DialogExt;
 
 use super::mutations::{
     create_entry_in_store, delete_entry_in_store, set_archived_entry_in_store,
     toggle_verified_entry_in_store, update_entry_in_store,
 };
 use crate::{
+    inventory_import::{
+        self, ImportCommitInput, ImportCommitResult, ImportDryRunReport, IMPORT_FILE_EXTENSIONS,
+    },
     model::{
         CommandResult, InventoryDeleteMutationResult, InventoryEntryEditContext,
         InventoryEntryInput, InventoryEntryMutationResult, InventoryQueryInput,
@@ -147,6 +151,54 @@ pub(crate) fn delete_entry(
     Ok(result)
 }
 
+#[tauri::command]
+pub(crate) async fn pick_import_file(app: AppHandle) -> CommandResult<Option<String>> {
+    let selected = app
+        .dialog()
+        .file()
+        .set_title("Select TE Test Equipment Import")
+        .add_filter("Inventory data", IMPORT_FILE_EXTENSIONS)
+        .blocking_pick_file();
+
+    selected
+        .map(|file_path| {
+            file_path
+                .simplified()
+                .into_path()
+                .map(|path| path.to_string_lossy().to_string())
+                .map_err(|error| format!("Could not read the selected import path: {error}"))
+        })
+        .transpose()
+}
+
+#[tauri::command]
+pub(crate) fn preview_import(
+    path: String,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    db: State<'_, InventoryDb>,
+) -> CommandResult<ImportDryRunReport> {
+    coordinator.run_exclusive("inventory import preview", || {
+        inventory_import::preview_import_from_path(std::path::Path::new(&path), &db)
+    })
+}
+
+#[tauri::command]
+pub(crate) fn commit_import(
+    app: AppHandle,
+    input: ImportCommitInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    db: State<'_, InventoryDb>,
+) -> CommandResult<ImportCommitResult> {
+    let coordinator = coordinator.inner().clone();
+    let result = coordinator.run_exclusive("inventory import commit", || {
+        inventory_import::commit_import_from_store(input, &db)
+    })?;
+    if result.entries_changed {
+        schedule_shared_publish(app, db.inner().clone(), coordinator);
+    }
+    Ok(result)
+}
+
 #[cfg(test)]
 fn load_inventory_from_store(db: &InventoryDb) -> CommandResult<InventorySyncResult> {
     load_inventory_from_store_with_status(db, None)
@@ -172,20 +224,21 @@ fn load_inventory_from_store_with_status(
 }
 
 fn schedule_shared_publish(app: AppHandle, db: InventoryDb, coordinator: SharedSyncCoordinator) {
-    let _ = tauri::async_runtime::spawn_blocking(move || {
+    // Publishing is intentionally detached so mutations can return without waiting on shared I/O.
+    drop(tauri::async_runtime::spawn_blocking(move || {
         let status = match coordinator.run_exclusive("shared publish", || {
             sync::publish_pending_local_changes(&db)
         }) {
             Ok(result) => result.shared,
             Err(error) => sync::shared_inventory_status(
                 &db,
-                &format!("Background shared publish failed: {error}"),
+                format!("Background shared publish failed: {error}"),
             ),
         };
         let _ = coordinator.set_background_status(status);
         db.flush();
         let _ = app.emit(shared_watcher::SHARED_INVENTORY_CHANGED_EVENT, ());
-    });
+    }));
 }
 
 fn query_inventory_from_store_with_status(
@@ -229,7 +282,9 @@ mod tests {
         assert_eq!(loaded.entries.len(), 1);
         assert_eq!(loaded.entries[0].description, "Startup local");
         assert_eq!(outbox_count(&db), 0);
-        assert!(loaded.shared.message.contains("Shared sync starting"));
+        assert!(!loaded.shared.enabled);
+        assert!(loaded.shared.message.contains("disabled for this release"));
+        assert!(loaded.shared.message.contains("sync is not a backup"));
     }
 
     #[test]
