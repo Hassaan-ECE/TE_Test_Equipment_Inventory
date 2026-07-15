@@ -3,9 +3,10 @@ import { MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
 import { ExportMenu } from "@/features/inventory/components/header/ExportMenu";
 import { ScopeToggle } from "@/features/inventory/components/header/ScopeToggle";
+import { UpdateActionButton } from "@/features/inventory/components/header/UpdateActionButton";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
-import type { InventoryScope, InventorySharedStatus, ThemeMode } from "@/features/inventory/types";
+import type { InventoryScope, InventorySharedStatus, ThemeMode, UpdateState } from "@/features/inventory/types";
 
 interface InventoryHeaderProps {
   archiveCount: number;
@@ -16,9 +17,11 @@ interface InventoryHeaderProps {
   onExportHtml: () => void;
   onScopeChange: (scope: InventoryScope) => void;
   onThemeToggle: () => void;
+  onUpdateAction: () => void;
   scope: InventoryScope;
   sharedStatus?: InventorySharedStatus;
   theme: ThemeMode;
+  updateState: UpdateState;
 }
 
 export function InventoryHeader({
@@ -30,9 +33,11 @@ export function InventoryHeader({
   onExportHtml,
   onScopeChange,
   onThemeToggle,
+  onUpdateAction,
   scope,
   sharedStatus,
   theme,
+  updateState,
 }: InventoryHeaderProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const isLocalOnly = !sharedStatus?.enabled;
@@ -66,6 +71,7 @@ export function InventoryHeader({
               >
                 {isLocalOnly ? "Local" : "Shared"}
               </span>
+              <UpdateActionButton state={updateState} onClick={onUpdateAction} />
             </div>
           </div>
         </div>

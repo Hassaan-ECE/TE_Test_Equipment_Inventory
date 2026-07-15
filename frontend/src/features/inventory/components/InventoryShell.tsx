@@ -11,6 +11,7 @@ import { SearchCard } from "@/features/inventory/components/SearchCard";
 import { StatusStrip } from "@/features/inventory/components/StatusStrip";
 import { buildDefaultStatusMessage } from "@/features/inventory/components/shell/helpers";
 import { useDesktopInventory } from "@/features/inventory/components/shell/useDesktopInventory";
+import { useDesktopUpdates } from "@/features/inventory/components/shell/useDesktopUpdates";
 import { useInventoryEntryMutations } from "@/features/inventory/components/shell/useInventoryEntryMutations";
 import { useInventoryExportActions } from "@/features/inventory/components/shell/useInventoryExportActions";
 import { useInventoryExternalActions } from "@/features/inventory/components/shell/useInventoryExternalActions";
@@ -38,6 +39,7 @@ export function InventoryShell() {
     setSharedStatus,
     sharedStatus,
   } = useDesktopInventory({ announceStatus });
+  const { handleUpdateAction, updateState } = useDesktopUpdates({ announceStatus });
   const {
     colorRows,
     columnVisibility,
@@ -196,9 +198,13 @@ export function InventoryShell() {
           onExportHtml={handleExportHtml}
           onScopeChange={setScope}
           onThemeToggle={handleThemeToggle}
+          onUpdateAction={() => {
+            void handleUpdateAction();
+          }}
           scope={scope}
           sharedStatus={sharedStatus}
           theme={theme}
+          updateState={updateState}
         />
 
         <div className="flex min-h-0 flex-1 overflow-hidden px-2 py-1.5 sm:px-3">

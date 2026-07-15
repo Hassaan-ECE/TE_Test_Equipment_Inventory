@@ -18,6 +18,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let db = store::InventoryDb::open(app.handle())?;
             let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(app.handle(), &db);

@@ -112,6 +112,31 @@ export interface InventoryEntryEditContext {
   changedFields: string[];
 }
 
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "ready"
+  | "installing"
+  | "error";
+
+export interface UpdateState {
+  available: boolean;
+  currentVersion: string;
+  downloadPhase?: "copying" | "verifying" | "ready";
+  downloadProgress?: number;
+  downloadedInstallerPath?: string;
+  error?: string;
+  installLogPath?: string;
+  installerPid?: number;
+  latestVersion?: string;
+  notes?: string;
+  publishedAt?: string;
+  status: UpdateStatus;
+}
+
 export interface InventorySharedStatus {
   available: boolean;
   canModify: boolean;

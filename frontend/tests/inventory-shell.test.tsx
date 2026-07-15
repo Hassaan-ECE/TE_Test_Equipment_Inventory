@@ -32,6 +32,7 @@ describe("InventoryShell loading and search", () => {
     expect(document.title).not.toContain(APP_CREDIT);
     expect(screen.queryByText(/prototype/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
+    // Update button only appears when the desktop updater reports a newer version.
     expect(screen.queryByRole("button", { name: /update/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Export/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export Excel" })).not.toBeInTheDocument();

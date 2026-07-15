@@ -11,6 +11,7 @@ import type {
   ImportCommitInput,
   ImportCommitResult,
   ImportDryRunReport,
+  UpdateState,
 } from "@/features/inventory/types";
 
 export interface InventorySyncResult {
@@ -44,7 +45,11 @@ declare global {
       previewImport: (path: string) => Promise<ImportDryRunReport>;
       commitImport: (input: ImportCommitInput) => Promise<ImportCommitResult>;
       exportExcel?: () => Promise<ExcelExportResult>;
+      checkForUpdate?: () => Promise<UpdateState>;
+      downloadUpdate?: () => Promise<UpdateState>;
+      installUpdate?: () => Promise<UpdateState>;
       onSharedInventoryChanged?: (callback: () => void) => () => void;
+      onUpdateStateChanged?: (callback: (state: UpdateState) => void) => () => void;
     };
   }
 }

@@ -16,7 +16,7 @@ Product decisions are authoritative in [docs/planning/DECISIONS.md](docs/plannin
 
 Tauri Local AppData is the authoritative database location. If the Local target does not yet exist, startup copies a same-identifier Roaming `inventory.feox` into Local AppData and preserves the Roaming source. An existing Local database is never overwritten by that compatibility copy.
 
-The inherited updater integration and dependencies have been removed, updater artifacts are disabled, and the app contains no inherited release endpoint, signing identity, or automatic update workflow. Releases remain a future operations task.
+Desktop auto-update is enabled (D-028), matching ME / TE Components: the header shows an **Update** button when GitHub `latest.json` reports a newer signed release. Signing uses a product-specific key (not ME/TE Components). Installers and updater metadata are published to GitHub Releases for `Hassaan-ECE/TE_Test_Equipment_Inventory`.
 
 ## Implemented v0.1 behavior
 

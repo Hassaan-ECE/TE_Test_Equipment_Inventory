@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/app/branding";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import {
   CALIBRATION_REQUIREMENT_OPTIONS,
@@ -19,6 +20,8 @@ import {
   type ImportRowOutcome,
   type ExcelExportResult,
   type LifecycleStatus,
+  type UpdateState,
+  type UpdateStatus,
   type WorkingStatus,
 } from "@/features/inventory/types";
 import { isValidDateOnly } from "@/features/inventory/lib/calibrationHealth";
@@ -28,6 +31,16 @@ const IMPORT_CLASSIFICATIONS = new Set<ImportClassification>([
 ]);
 const IMPORT_COLUMN_TREATMENTS = new Set<ImportColumnTreatment>([
   "mapped", "intentionally_ignored", "unknown",
+]);
+const UPDATE_STATUSES = new Set<UpdateStatus>([
+  "idle",
+  "checking",
+  "available",
+  "not-available",
+  "downloading",
+  "ready",
+  "installing",
+  "error",
 ]);
 
 export function parseInventorySyncResult(value: unknown): InventorySyncResult {
@@ -163,6 +176,32 @@ export function parseBoolean(value: unknown, label: string): boolean {
     throw new Error(`Invalid ${label}: expected a boolean.`);
   }
   return value;
+}
+
+export function parseUpdateState(value: unknown): UpdateState {
+  const record = requireRecord(value, "update state");
+  const status = UPDATE_STATUSES.has(record.status as UpdateStatus)
+    ? (record.status as UpdateStatus)
+    : "error";
+  return {
+    available: record.available === true,
+    currentVersion: optionalString(record.currentVersion) ?? APP_VERSION,
+    downloadPhase:
+      record.downloadPhase === "copying" ||
+      record.downloadPhase === "verifying" ||
+      record.downloadPhase === "ready"
+        ? record.downloadPhase
+        : undefined,
+    downloadProgress: optionalFiniteNumber(record.downloadProgress),
+    downloadedInstallerPath: optionalString(record.downloadedInstallerPath),
+    error: optionalString(record.error),
+    installLogPath: optionalString(record.installLogPath),
+    installerPid: optionalFiniteNumber(record.installerPid),
+    latestVersion: optionalString(record.latestVersion),
+    notes: optionalString(record.notes),
+    publishedAt: optionalString(record.publishedAt),
+    status,
+  };
 }
 
 function parseInventoryEntry(value: unknown): InventoryEntry {

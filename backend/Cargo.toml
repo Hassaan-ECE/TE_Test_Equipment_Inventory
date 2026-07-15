@@ -1,6 +1,6 @@
 [package]
 name = "te-test-equipment-inventory"
-version = "0.1.2"
+version = "0.1.4"
 description = "TE Test Equipment Inventory - tracks testing equipment and calibration status"
 authors = ["Syed Hassaan Shah"]
 edition = "2021"
@@ -30,3 +30,6 @@ sha2 = "0.10"
 
 [dev-dependencies]
 zip = { version = "7.2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-updater = "2.10.1"
