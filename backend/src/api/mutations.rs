@@ -552,10 +552,13 @@ mod tests {
     fn assert_local_outbox_status(mutation_mode: &str, shared: &InventorySharedStatus) {
         assert_eq!(mutation_mode, "local");
         assert_eq!(shared.has_local_only_changes, Some(true));
-        assert!(!shared.enabled);
-        assert!(shared.message.contains("disabled for this release"));
-        assert!(shared.message.contains("sync is not a backup"));
+        assert!(shared.enabled);
         assert_eq!(shared.mutation_mode, "local");
+        assert!(
+            shared.message.contains("queued for shared sync")
+                || shared.message.contains("Pending local")
+                || shared.message.contains("Shared workspace unavailable")
+        );
     }
 
     fn read_outbox_operation(db: &InventoryDb, local_seq: u64) -> SyncOperationEnvelope {

@@ -33,7 +33,7 @@ pub(crate) fn run_shared_sync(db: &InventoryDb) -> CommandResult<SharedSyncRunRe
             entries_changed: false,
             shared: disabled_shared_status(
                 Some(db),
-                "Shared sync is disabled for this release. No shared path was accessed.",
+                "Shared sync is disabled for this process. No shared path was accessed.",
             ),
         });
     }
@@ -49,7 +49,7 @@ pub(crate) fn publish_pending_local_changes(
             entries_changed: false,
             shared: disabled_shared_status(
                 Some(db),
-                "Shared sync is disabled for this release. Change saved locally; sync is not a backup.",
+                "Shared sync is disabled for this process. Change saved locally; sync is not a backup.",
             ),
         });
     }

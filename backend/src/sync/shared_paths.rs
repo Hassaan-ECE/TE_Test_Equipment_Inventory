@@ -8,19 +8,22 @@ use super::{
 };
 
 const SHARED_SYNC_DISABLED_MESSAGE: &str =
-    "Shared sync is disabled for this release. Changes stay on this computer; sync is not a backup.";
+    "Shared sync is disabled for this process. Changes stay on this computer; sync is not a backup.";
 
 pub(crate) fn shared_sync_enabled() -> bool {
     shared_sync_enabled_from_env_value(env::var_os(SHARED_SYNC_ENABLED_ENV))
 }
 
+/// Production default is ON (ME/TE Parts family). Explicitly set
+/// `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED` to `0` / `false` / `no` / `off` to opt out.
 fn shared_sync_enabled_from_env_value(value: Option<OsString>) -> bool {
-    value.is_some_and(|value| {
-        matches!(
-            value.to_string_lossy().trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        )
-    })
+    match value {
+        None => true,
+        Some(value) => {
+            let normalized = value.to_string_lossy().trim().to_ascii_lowercase();
+            !matches!(normalized.as_str(), "0" | "false" | "no" | "off")
+        }
+    }
 }
 
 pub(crate) fn resolve_shared_root() -> PathBuf {
@@ -160,16 +163,16 @@ mod tests {
     use std::ffi::OsString;
 
     #[test]
-    fn shared_sync_requires_an_explicit_truthy_gate() {
-        assert!(!shared_sync_enabled_from_env_value(None));
-        assert!(!shared_sync_enabled_from_env_value(Some(OsString::from(
-            ""
-        ))));
-        assert!(!shared_sync_enabled_from_env_value(Some(OsString::from(
-            "false"
-        ))));
-        for value in ["1", " true ", "YES", "on"] {
+    fn shared_sync_defaults_on_and_allows_explicit_opt_out() {
+        assert!(shared_sync_enabled_from_env_value(None));
+        assert!(shared_sync_enabled_from_env_value(Some(OsString::from(""))));
+        for value in ["1", " true ", "YES", "on", "anything"] {
             assert!(shared_sync_enabled_from_env_value(Some(OsString::from(
+                value
+            ))));
+        }
+        for value in ["0", "false", " no ", "OFF"] {
+            assert!(!shared_sync_enabled_from_env_value(Some(OsString::from(
                 value
             ))));
         }

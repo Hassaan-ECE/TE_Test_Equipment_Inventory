@@ -17,30 +17,27 @@ Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree. It i
 3. `README.md`
 4. `AGENTS.md`
 
-**Current state:** v0.1 implementation candidate on the existing ME-family Tauri 2 + React + FeOxDB scaffold. ME Inventory `e092c73` is historical scaffold lineage and TE Parts `e444389` is a read-only sibling reference. This app is not a published production release and lab cutover is not complete.
+**Current state:** package **0.1.1** on the ME-family Tauri 2 + React + FeOxDB scaffold. Shared sync is **on by default** (D-027) using `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment`. Full live Excel cutover is still blocked on 50 identity conflicts + 8 invalid dates. ME Inventory `e092c73` is historical scaffold lineage; TE Parts `e444389` is a read-only sibling.
 
 **Stable identity:**
 
 - display: TE Test Equipment Inventory
-- package: `te-test-equipment-inventory`
+- package: `te-test-equipment-inventory` `0.1.1`
 - Tauri id: `com.te.test.equipment.inventory` — do not change after installs without a migration plan
 - local DB: `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox`
 
-**Implemented:** identity/updater hygiene; Local AppData compatibility copy; current-state calibration and derived health; timestamped verification; calibration-aware FeOxDB/sync/export; dry-run and confirmed idempotent CSV/Excel importer with provenance; live aggregate import profiling; calibration UI, filters, and chips. Former O-001 through O-008 are resolved by D-017 through D-025. D-026 makes v0.1 import offline/operator-driven and full-batch-only: the shell has no Import action, the desktop command rejects partial commits, and partial behavior remains internal-test-only.
+**Implemented:** identity hygiene; Local AppData; current-state calibration and derived health; FeOxDB/sync/export; offline full-batch importer (D-026); calibration UI. D-027 enables shared sync by default with opt-out via `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED=0|false|no|off`. Optional `TE_TEST_EQUIPMENT_SHARED_ROOT` and `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY`.
 
-**Operations boundary:** shared synchronization is disabled by default behind `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED`; optional configuration uses `TE_TEST_EQUIPMENT_SHARED_ROOT` and `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY`. Sync is not a backup. Do not enable production shared mode, push, deploy, publish, install on lab PCs, delete lab data, or expand scope without owner authorization.
+**Operations boundary:** sync is not a backup. Keep Local AppData on upgrade. Do not use the TE Lab Components shared folder. Do not partial-load the blocking live workbook. Do not retire the Python app without authorization.
 
 **Remaining gates:**
 
-1. independent post-change review;
-2. Boss lint/test/build/Tauri/smoke verification and exact blocker reporting;
-3. live import correction — aggregate profile is available, but 50 identity conflicts and eight invalid-date rows block the required full-batch commit; never partial-load real Local AppData;
-4. protected import/restore rehearsal and rollback plan;
-5. department shared-root/ACL/backup ownership and real two-machine proof;
-6. explicit cutover authorization.
+1. seed-machine upgrade smoke (0.1.0 → 0.1.1) and shared bootstrap of existing entries;
+2. second-machine pull proof;
+3. live import row corrections + full-batch cutover rehearsal;
+4. backup/restore drill;
+5. optional department ACL ownership.
 
-Keep v0.1 boundaries: current calibration state only, no `CalibrationEvent` history store, no managed media vault, no production shared-sync enablement, and no Python retirement.
-
-Use Workers for tracked project edits, Managers/Reviewers read-only, and require independent review plus Boss verification before claiming completion.
+Keep v0.1 boundaries: current calibration state only, no `CalibrationEvent` history store, no managed media vault, no Python retirement without owner OK.
 
 ---

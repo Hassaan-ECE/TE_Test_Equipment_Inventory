@@ -292,10 +292,9 @@ mod tests {
 
         assert_eq!(loaded.entries.len(), 1);
         assert_eq!(loaded.entries[0].description, "Startup local");
+        // Load does not bootstrap/publish; existing rows stay local until shared sync runs.
         assert_eq!(outbox_count(&db), 0);
-        assert!(!loaded.shared.enabled);
-        assert!(loaded.shared.message.contains("disabled for this release"));
-        assert!(loaded.shared.message.contains("sync is not a backup"));
+        assert!(loaded.shared.enabled);
     }
 
     #[test]

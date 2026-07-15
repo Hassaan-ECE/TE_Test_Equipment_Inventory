@@ -1,6 +1,6 @@
 # TE Test Equipment Inventory
 
-TE Test Equipment Inventory is a Windows desktop inventory application built with Tauri 2, React 19, TypeScript, Vite, Tailwind CSS v4, Bun, Rust, and FeOxDB. The current tree is a v0.1 implementation candidate; it is not a published production release and has not completed lab cutover.
+TE Test Equipment Inventory is a Windows desktop inventory application built with Tauri 2, React 19, TypeScript, Vite, Tailwind CSS v4, Bun, Rust, and FeOxDB. Current package version is **0.1.1** (shared sync on by default under D-027). Full lab cutover import of the live Excel export remains incomplete until source rows are corrected.
 
 Product decisions are authoritative in [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md). The ME Inventory tree at `e092c73` is historical scaffold lineage, and TE Parts at `e444389` is a read-only sibling reference. Neither is this product's runtime or release identity.
 
@@ -9,7 +9,7 @@ Product decisions are authoritative in [docs/planning/DECISIONS.md](docs/plannin
 | Item | Source truth |
 |------|--------------|
 | Display name | `TE Test Equipment Inventory` |
-| Package | `te-test-equipment-inventory` version `0.1.0` |
+| Package | `te-test-equipment-inventory` version `0.1.1` |
 | Tauri identifier | `com.te.test.equipment.inventory` — keep stable after installation |
 | Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 | Excel export default | `TE_Test_Equipment_Inventory_Export.xlsx` |
@@ -52,13 +52,14 @@ FeOxDB is the local authoritative store. Calibration, verification, provenance, 
 
 Excel export writes active and archive worksheets and includes calibration, derived health for the export date, verification, and provenance fields.
 
-Shared synchronization is integrated but disabled by default in this implementation candidate. It may be exercised only with deliberate configuration:
+Shared synchronization is **enabled by default** from v0.1.1 (D-027), matching the ME / TE Parts family pattern:
 
-- `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED` — truthy values enable the shared path
+- Default root: `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment` (layout uses `shared\inventory\` under that root)
 - `TE_TEST_EQUIPMENT_SHARED_ROOT` — optional root override
+- `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED` — set to `0` / `false` / `no` / `off` to opt out for a process
 - `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY` — optional shared-file authentication secret, at least 16 bytes
 
-The fallback root remains the accepted TE Test Equipment sketch under the Engineering share. Production shared mode, final root/ACL ownership, and two-machine proof are not complete. Sync is not a backup: cutover still requires protected source exports, retention, a restore drill, and a rollback plan.
+If the shared root is missing or unreachable, the app remains fully usable locally and queues changes until the root is available. Upgrading the installer keeps Local AppData (same Tauri id). First successful shared sync bootstraps existing local entries onto the share once. Sync is not a backup: retain Local AppData copies and protected source exports.
 
 ## Workspace
 
@@ -119,15 +120,12 @@ bun run build:desktop
 
 ## Remaining release and cutover gates
 
-- independent post-change review and Boss acceptance verification
-- final frontend build and desktop/Tauri smoke on the target Windows environment
-- correction of 50 identity-conflicted and eight invalid-date live rows, followed by a protected repeat dry run
-- a non-blocking full-batch import preview; no partial load into real Local AppData
-- backup retention and restore drill
-- final shared root, ACL/owner decisions, and real two-machine sync proof
-- migration rehearsal, operator sign-off, protected cutover inputs, and Python read-only rollback window
+- correction of 50 identity-conflicted and eight invalid-date live rows, followed by a protected full-batch dry run/import
+- backup retention and restore drill for Local AppData (sync is not a backup)
+- real two-machine sync proof and durable department ACL ownership as ops follow-up
+- migration sign-off and Python read-only rollback window before retiring the Python workflow
 
-Do not publish, install on lab PCs, enable production shared synchronization, or retire the Python workflow until those gates are explicitly authorized and completed.
+Installer releases may ship with shared sync on (D-027). Do not delete Local AppData on upgrade; keep Tauri id `com.te.test.equipment.inventory` stable.
 
 ## Documentation map
 

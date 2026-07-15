@@ -38,7 +38,7 @@ export function InventoryHeader({
   const isLocalOnly = !sharedStatus?.enabled;
   const modeTitle = isLocalOnly
     ? sharedStatus?.message?.trim() ||
-      "Shared sync is disabled for this release. Changes stay on this computer; sync is not a backup."
+      "Shared sync is off for this session. Changes stay on this computer; sync is not a backup."
     : sharedStatus?.message?.trim() || "Shared sync enabled";
 
   return (
