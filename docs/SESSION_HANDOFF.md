@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-15
 
-**State:** v0.1.4 with shared sync on by default (D-027) and ME-style in-app updater (D-028). Product share folder matches ME/TE layout. Full lab Excel cutover still blocked on source corrections.
+**State:** v0.1.5 with shared sync on by default (D-027) and ME-style in-app updater (D-028). Idle "Shared operation sync ready" footer text is suppressed. Product share keeps only v0.1.4+ installers. Full lab Excel cutover still blocked on source corrections.
 
 ## Workspace and authority
 
@@ -21,7 +21,7 @@ The repository is on `main` and tracks `origin/main`; `origin` is `https://githu
 | Item | Value |
 |------|-------|
 | Display | TE Test Equipment Inventory |
-| Package | `te-test-equipment-inventory` version `0.1.4` |
+| Package | `te-test-equipment-inventory` version `0.1.5` |
 | Tauri id | `com.te.test.equipment.inventory` |
 | Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` |
@@ -30,12 +30,14 @@ The repository is on `main` and tracks `origin/main`; `origin` is `https://githu
 
 ```text
 S:\...\InventoryApps\TE_Test_Equipment_Inventory\
-  TE Test Equipment Inventory_0.1.4_x64-setup.exe   # current latest
+  TE Test Equipment Inventory_0.1.5_x64-setup.exe   # current latest
   release-support\
-    v0.1.0\ … v0.1.4\   installer + SHA256SUMS (+ .sig/latest.json from 0.1.3)
+    v0.1.4\ … v0.1.5\   installer + SHA256SUMS (+ .sig/latest.json)
   shared\inventory\{ops,snapshots,locks,backups,manifest.json}
   backups\   # optional Local AppData copies (not sync)
 ```
+
+Installers **0.1.3 and below** are removed from the share and GitHub so they are not installed by mistake.
 
 Default shared root is the product folder itself (same as ME → `...\ME`, TE Components → `...\TE`). Layout under it is `shared\inventory\...`.
 
@@ -52,14 +54,9 @@ Do **not** use `...\InventoryApps\TE\shared` (TE Lab Components).
 - First successful sync bootstraps existing Local AppData entries onto the share once
 - Sync is not a backup
 
-## How to test the Update button
+## How to update
 
-1. Install **0.1.3** from `release-support\v0.1.3\` (first version with updater code).  
-2. Open the app (needs network to GitHub).  
-3. Header should show **Update 0.1.4**.  
-4. Click → download → install.  
-
-Note: 0.1.0–0.1.2 have **no** updater; they cannot show the button.
+Install/run the current root setup, or from **0.1.4** open the app online and use **Update 0.1.5** when shown. Older than 0.1.4 is not kept on the share.
 
 ## Remaining gates
 

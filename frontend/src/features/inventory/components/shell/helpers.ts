@@ -110,17 +110,64 @@ export function hasDesktopBridge(): boolean {
   return typeof window !== "undefined" && Boolean(window.inventoryDesktop?.isDesktop);
 }
 
-/** Transient status only — totals and Local/Shared mode live in StatusStrip pills. */
+/**
+ * Transient status only. Mode is already shown by the Shared/Local pill, so suppress
+ * healthy idle sync chatter like "Shared operation sync ready."
+ */
 export function buildDefaultStatusMessage(
   _totalCount: number,
   _verifiedCount: number,
   dataSource: "desktop" | "mock",
   sharedStatus: InventorySharedStatus,
 ): string {
-  if (dataSource === "desktop" && sharedStatus.enabled && sharedStatus.message.trim()) {
-    return sharedStatus.message.trim();
+  if (dataSource !== "desktop" || !sharedStatus.enabled) {
+    return "";
   }
-  return "";
+
+  const message = sharedStatus.message.trim();
+  if (!message || isRoutineSharedStatusMessage(message)) {
+    return "";
+  }
+  return message;
+}
+
+/** True for idle/healthy sync strings that duplicate the Shared pill. */
+export function isRoutineSharedStatusMessage(message: string): boolean {
+  const normalized = message.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return true;
+  }
+
+  const lower = normalized.toLowerCase();
+  // Keep anything that needs operator attention or confirms a real action.
+  const keepHints = [
+    "unavailable",
+    "pending local",
+    "published",
+    "corrupt",
+    "failed",
+    "disabled",
+    "error",
+    "permission",
+    "queued",
+    "could not",
+    "denied",
+  ];
+  if (keepHints.some((hint) => lower.includes(hint))) {
+    return false;
+  }
+
+  if (/^shared operation sync ready\.?( snapshot refreshed\.)?$/i.test(normalized)) {
+    return true;
+  }
+  if (/^feoxdb local store ready/i.test(normalized)) {
+    return true;
+  }
+  if (/^shared sync (enabled|starting)/i.test(normalized)) {
+    return true;
+  }
+
+  return false;
 }
 
 export function buildLocalCreatedEntry(input: InventoryEntryInput): InventoryEntry {
