@@ -1,6 +1,6 @@
 # TE Test Equipment Inventory
 
-TE Test Equipment Inventory is a Windows desktop inventory application built with Tauri 2, React 19, TypeScript, Vite, Tailwind CSS v4, Bun, Rust, and FeOxDB. Current package version is **0.1.1** (shared sync on by default under D-027). Full lab cutover import of the live Excel export remains incomplete until source rows are corrected.
+TE Test Equipment Inventory is a Windows desktop inventory application built with Tauri 2, React 19, TypeScript, Vite, Tailwind CSS v4, Bun, Rust, and FeOxDB. Current package version is **0.1.2** (shared sync on by default under D-027). Full lab cutover import of the live Excel export remains incomplete until source rows are corrected.
 
 Product decisions are authoritative in [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md). The ME Inventory tree at `e092c73` is historical scaffold lineage, and TE Parts at `e444389` is a read-only sibling reference. Neither is this product's runtime or release identity.
 
@@ -9,7 +9,7 @@ Product decisions are authoritative in [docs/planning/DECISIONS.md](docs/plannin
 | Item | Source truth |
 |------|--------------|
 | Display name | `TE Test Equipment Inventory` |
-| Package | `te-test-equipment-inventory` version `0.1.1` |
+| Package | `te-test-equipment-inventory` version `0.1.2` |
 | Tauri identifier | `com.te.test.equipment.inventory` — keep stable after installation |
 | Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 | Excel export default | `TE_Test_Equipment_Inventory_Export.xlsx` |
@@ -54,7 +54,7 @@ Excel export writes active and archive worksheets and includes calibration, deri
 
 Shared synchronization is **enabled by default** from v0.1.1 (D-027), matching the ME / TE Parts family pattern:
 
-- Default root: `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment` (layout uses `shared\inventory\` under that root)
+- Default product share: `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` (ME/TE layout: installer at root, `release-support\vX.Y.Z\`, `shared\inventory\`)
 - `TE_TEST_EQUIPMENT_SHARED_ROOT` — optional root override
 - `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED` — set to `0` / `false` / `no` / `off` to opt out for a process
 - `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY` — optional shared-file authentication secret, at least 16 bytes

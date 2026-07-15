@@ -30,6 +30,6 @@ If documents disagree, update the others to match **DECISIONS.md**.
 | Workspace | `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory` |
 | Tauri identifier | `com.te.test.equipment.inventory` |
 | Local DB (accepted) | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
-| Shared root (sketch) | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment` |
+| Product share (D-027) | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` |
 
 Earlier planning used the name “TE Lab Equipment Inventory” / `com.te.lab.equipment.inventory`. That is **historical**; see D-015 in DECISIONS.md.

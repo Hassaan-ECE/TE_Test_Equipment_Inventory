@@ -26,11 +26,15 @@ use sync_fixtures::unique_test_dir;
 fn shared_root_prefers_env_override_and_defaults_to_te_test_equipment_path() {
     assert_eq!(
         resolve_shared_root_from_env_value(None),
-        PathBuf::from(r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment",)
+        PathBuf::from(
+            r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory",
+        )
     );
     assert_eq!(
         PathBuf::from(DEFAULT_SHARED_ROOT),
-        PathBuf::from(r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE\Test_Equipment",)
+        PathBuf::from(
+            r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory",
+        )
     );
     assert_eq!(
         resolve_shared_root_from_env_value(Some(OsString::from("  C:\\TE Shared Root  "))),

@@ -1,6 +1,6 @@
 [package]
 name = "te-test-equipment-inventory"
-version = "0.1.1"
+version = "0.1.2"
 description = "TE Test Equipment Inventory - tracks testing equipment and calibration status"
 authors = ["Syed Hassaan Shah"]
 edition = "2021"
