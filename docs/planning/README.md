@@ -1,26 +1,26 @@
 # Planning docs (product decisions)
 
 **Status:** Active  
-**Last updated:** 2026-07-13
+**Last updated:** 2026-07-15
 
-These documents are the **product and architecture plan** for TE Test Equipment Inventory. They were imported from the docs-only GitHub repo [Hassaan-ECE/TE_Lab_Equipment_Inventory](https://github.com/Hassaan-ECE/TE_Lab_Equipment_Inventory) and remapped to the **Test Equipment** identity used on this PC.
+Product/architecture decisions for TE Test Equipment Inventory. Origin: docs-only repo [Hassaan-ECE/TE_Lab_Equipment_Inventory](https://github.com/Hassaan-ECE/TE_Lab_Equipment_Inventory), remapped to **Test Equipment** identity.
 
 ## Authority order
 
-1. [DECISIONS.md](DECISIONS.md) — **authoritative** accepted / open / deferred decisions  
-2. [PROJECT_DISCUSSION.md](PROJECT_DISCUSSION.md) — working product context and plan  
-3. [SECOND_OPINION_REVIEW.md](SECOND_OPINION_REVIEW.md) — advisory review + acceptance criteria  
-4. [ENGINEERING_SUGGESTIONS.md](ENGINEERING_SUGGESTIONS.md) — advisory implementation opinions  
+1. [DECISIONS.md](DECISIONS.md) — **authoritative** policy (reconcile to code if they diverge)  
+2. [../SESSION_HANDOFF.md](../SESSION_HANDOFF.md) / [../../README.md](../../README.md) — **current runtime** state (verify versions against package files)  
+3. [PROJECT_DISCUSSION.md](PROJECT_DISCUSSION.md), [SECOND_OPINION_REVIEW.md](SECOND_OPINION_REVIEW.md), [ENGINEERING_SUGGESTIONS.md](ENGINEERING_SUGGESTIONS.md) — **historical / advisory** pre-implementation context  
 
-If documents disagree, update the others to match **DECISIONS.md**.
+If documents disagree on **policy**, update others to match **DECISIONS.md** (after checking code). If they disagree on **version/share/sync defaults**, code and live systems win.
 
 ## Related project entry points
 
 | Doc | Role |
 |-----|------|
-| [../../README.md](../../README.md) | Project entry, runtime identity, current code state |
-| [../SESSION_HANDOFF.md](../SESSION_HANDOFF.md) | Cross-machine / new-chat handoff |
-| [../../AGENTS.md](../../AGENTS.md) | Short rules for coding agents in this repo |
+| [../README.md](../README.md) | Docs index + trust rules |
+| [../../README.md](../../README.md) | Project entry |
+| [../SESSION_HANDOFF.md](../SESSION_HANDOFF.md) | Cross-session verified state |
+| [../../AGENTS.md](../../AGENTS.md) | Short rules for coding agents |
 
 ## Identity (do not casually change)
 

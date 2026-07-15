@@ -40,6 +40,8 @@ Put cutover workbooks under `data/import/` (gitignored). Never commit live lab i
 
 Run real lint/test/build/smoke commands before claiming success. Sync artifacts are not a backup.
 
+**Do not trust docs blindly.** Version, shared root, sync default, and release paths must match code (`package.json` / `Cargo.toml` / `tauri.conf.json` / `backend/src/sync`) and live share/GitHub when claimed as current. Prefer `docs/SESSION_HANDOFF.md` + DECISIONS over discussion/superpowers plans.
+
 ## New session
 
 Owner can paste `docs/SESSION_START_PROMPT.md` into a new chat after opening this folder.

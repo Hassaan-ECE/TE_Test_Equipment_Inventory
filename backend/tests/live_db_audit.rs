@@ -10,10 +10,6 @@ pub(crate) mod store;
 #[path = "../src/sync/mod.rs"]
 pub(crate) mod sync;
 
-pub(crate) mod domain {
-    pub(crate) use crate::entry_changes_impl as entry_changes;
-}
-
 use std::{collections::BTreeMap, path::PathBuf};
 
 use calamine::{open_workbook_auto, Reader};
@@ -120,4 +116,89 @@ fn audit_live_database_snapshot_aggregates_only() {
         duplicate_serial_rows
     );
     assert!(!entries.is_empty());
+}
+
+/// Opt-in: empty temp DB pulls from the live product shared root (read path; should not publish
+/// while ops < 1000 and snapshot age < 24h).
+#[test]
+fn pull_live_shared_root_into_empty_temp_db_when_requested() {
+    if std::env::var("TE_LIVE_SHARED_PULL").ok().as_deref() != Some("1") {
+        return;
+    }
+
+    let shared_root = PathBuf::from(
+        std::env::var("TE_TEST_EQUIPMENT_SHARED_ROOT").unwrap_or_else(|_| {
+            r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory"
+                .to_string()
+        }),
+    );
+    assert!(
+        shared_root.exists(),
+        "shared root missing: {}",
+        shared_root.display()
+    );
+
+    let op_count_before = std::fs::read_dir(shared_root.join("shared").join("inventory").join("ops"))
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .flat_map(|client| std::fs::read_dir(client.path()).into_iter().flatten())
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .path()
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".op.json"))
+        })
+        .count();
+
+    let temp = std::env::temp_dir().join(format!(
+        "te-live-shared-pull-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    ));
+    std::fs::create_dir_all(&temp).unwrap();
+    let db_path = temp.join("inventory.feox");
+    let db = InventoryDb::open_at_with_size(db_path, 64 * 1024 * 1024).unwrap();
+    assert!(db.load_entries().unwrap().is_empty());
+
+    let result = sync::test_support::run_shared_sync_with_root(&db, &shared_root).unwrap();
+    let entries = db.load_entries().unwrap();
+    println!(
+        "live_shared_pull: available={} enabled={} entries={} message={}",
+        result.shared.available,
+        result.shared.enabled,
+        entries.len(),
+        result.shared.message
+    );
+    assert!(result.shared.available, "shared root should be available");
+    assert_eq!(
+        entries.len(),
+        op_count_before,
+        "fresh client should hydrate one entry per durable op (ops={op_count_before})"
+    );
+
+    let op_count_after = std::fs::read_dir(shared_root.join("shared").join("inventory").join("ops"))
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .flat_map(|client| std::fs::read_dir(client.path()).into_iter().flatten())
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .path()
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".op.json"))
+        })
+        .count();
+    assert_eq!(
+        op_count_after, op_count_before,
+        "pull-only client must not write extra operation files"
+    );
+
+    let _ = std::fs::remove_dir_all(temp);
 }

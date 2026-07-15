@@ -1,136 +1,110 @@
 # TE Test Equipment Inventory
 
-TE Test Equipment Inventory is a Windows desktop inventory application built with Tauri 2, React 19, TypeScript, Vite, Tailwind CSS v4, Bun, Rust, and FeOxDB. Current package version is **0.1.2** (shared sync on by default under D-027). Full lab cutover import of the live Excel export remains incomplete until source rows are corrected.
+Windows desktop inventory app (Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB).
 
-Product decisions are authoritative in [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md). The ME Inventory tree at `e092c73` is historical scaffold lineage, and TE Parts at `e444389` is a read-only sibling reference. Neither is this product's runtime or release identity.
+**Current package version: `0.1.5`** (verify in `package.json` / `backend/Cargo.toml` / `backend/tauri.conf.json` before treating this line as truth).
+
+Product policy: [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md). Session state: [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md). Docs map and trust rules: [docs/README.md](docs/README.md).
+
+Scaffold lineage (not runtime identity): ME Inventory `e092c73`; TE Parts `e444389` is a sibling reference.
+
+## Team install (shared mode)
+
+| Item | Location |
+|------|----------|
+| Installer | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory\TE Test Equipment Inventory_0.1.5_x64-setup.exe` |
+| Shared data root (default) | same folder (`shared\inventory\` under it) |
+| GitHub Latest | [v0.1.5](https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory/releases/latest) |
+
+1. Ensure the Engineering **S:** share is available.
+2. Run the **0.1.5** setup (current-user NSIS).
+3. Open the app — it should sync from the product share and show the shared inventory (seed machine was verified at **543** entries on 2026-07-15).
+4. Do **not** install removed builds **0.1.3 and below**.
+
+Upgrades keep Local AppData when the Tauri id stays `com.te.test.equipment.inventory`. In-app **Update** appears when GitHub `latest.json` reports a newer signed release (D-028).
 
 ## Identity and storage
 
 | Item | Source truth |
 |------|--------------|
 | Display name | `TE Test Equipment Inventory` |
-| Package | `te-test-equipment-inventory` version `0.1.2` |
+| Package | `te-test-equipment-inventory` version `0.1.5` |
 | Tauri identifier | `com.te.test.equipment.inventory` — keep stable after installation |
 | Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 | Excel export default | `TE_Test_Equipment_Inventory_Export.xlsx` |
 
-Tauri Local AppData is the authoritative database location. If the Local target does not yet exist, startup copies a same-identifier Roaming `inventory.feox` into Local AppData and preserves the Roaming source. An existing Local database is never overwritten by that compatibility copy.
+Local AppData is the machine-local store. If Local is missing and a same-id Roaming `inventory.feox` exists, startup copies Roaming → Local once and leaves the source in place.
 
-Desktop auto-update is enabled (D-028), matching ME / TE Components: the header shows an **Update** button when GitHub `latest.json` reports a newer signed release. Signing uses a product-specific key (not ME/TE Components). Installers and updater metadata are published to GitHub Releases for `Hassaan-ECE/TE_Test_Equipment_Inventory`.
+## Behavior summary
 
-## Implemented v0.1 behavior
+### Calibration
 
-### Calibration and verification
+Current-state fields on each entry; **derived** health (`missing_due | overdue | due_soon | current | not_applicable | unknown | out_to_cal`). No `CalibrationEvent` history ledger (D-017). Explicit due date is authoritative; interval only suggests (D-022).
 
-Equipment stores current calibration state:
+### UI
 
-- `calibrationRequirement`: `required | reference_only | not_required | unknown`
-- separate `outToCalibration` workflow flag
-- optional `lastCalibratedAt`, explicit `calibrationDueAt`, and `calibrationIntervalMonths`
-- optional `certificateRef`, calibration vendor, and calibration notes
-- timestamped `verifiedAt` with optional free-text `verifiedBy`
+Active/archive views, add/edit/verify/archive/restore/delete, search, filters, calibration badges/counts. **No Import button** in the shell (D-026). Header shows **Shared** / **Local** mode; idle “Shared operation sync ready.” footer text is suppressed.
 
-Calibration health is derived, not stored: `missing_due | overdue | due_soon | current | not_applicable | unknown | out_to_cal`. For active entries, the implemented precedence is not-applicable requirements, unknown requirement, out-to-cal, missing due date, overdue, due soon, then current. A required item without an explicit due date is `missing_due`. Due soon means `today <= dueDate <= today + 30 days`; dates before today are overdue. An interval can suggest a due date, but it never silently overwrites an explicit due date.
+### Importer (offline cutover)
 
-V0.1 keeps current state only. A full `CalibrationEvent` history store and managed certificate/media vault are deferred.
+Still available as backend/offline tooling only: dry-run, full-batch commit, no partial desktop commits. Historical live Excel aggregate profile (empty-DB dry-run): `573 / 515 / 0 / 50 / 8 / 0` blocking — see [docs/planning/IMPORT_PROFILE.md](docs/planning/IMPORT_PROFILE.md). The **deployed shared inventory** is the repaired **543**-entry set (ops on the product share), not that unfinished full-workbook cutover.
 
-### Inventory UI
+### Shared sync (D-027)
 
-The existing inventory shell supports active and archive views, add/edit/verify/archive/restore/delete flows, search, sorting, column visibility, and calibration-specific display and editing. It shows requirement, due date, out-to-calibration state, derived health badges, and timestamped verification. Filters cover requirement, derived health, and due windows; active counts show overdue, due soon, missing due, and out to cal.
+**On by default.** Default root:
 
-### Cutover importer
+`S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory`
 
-V0.1 intentionally exposes no Import action in the inventory shell. Import is an offline/operator-driven cutover workflow; the retained importer and native picker support `.csv`, `.xlsx`, and `.xls` paths for that controlled process. A dry run accounts for every source row as `inserted`, `matched`, `conflicted`, `rejected`, or `ignored`, and reports the treatment of source columns and raw values.
+Layout: `shared\inventory\{ops,snapshots,locks,backups,manifest.json}` (ME/TE family pattern).
 
-Batch identity is content/sheet/mapping based and import provenance retains batch, source filename, sheet, row, and original identifiers. Matching is limited to unique normalized asset or serial identity; manufacturer plus model never auto-merges. Commit requires explicit confirmation, revalidates the source and reconciliation basis, and blocks while conflicts or rejections remain. The production desktop path is full-batch-only and rejects partial commit requests. The importer engine retains partial behavior only for synthetic/internal tests; it is not a supported Local AppData cutover path. Repeating a completed batch is idempotent; matched and intentionally ignored rows are durable no-ops.
+| Env | Purpose |
+|-----|---------|
+| `TE_TEST_EQUIPMENT_SHARED_ROOT` | Override root |
+| `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED` | `0` / `false` / `no` / `off` to disable |
+| `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY` | Optional shared-file HMAC (≥16 bytes) |
 
-A local, gitignored live export has been aggregate-profiled. The importer selects its `Inventory` sheet and reports `573 total / 515 inserted / 0 matched / 50 conflicted / 8 rejected / 0 ignored`, with commit blocked until the identity conflicts and invalid dates are corrected. Do not partial-load this workbook: source corrections change content-derived batch identity, and the 41 rows with neither asset nor serial identity are especially vulnerable to duplicate insertion. No live row contents or identifier values are tracked; see [docs/planning/IMPORT_PROFILE.md](docs/planning/IMPORT_PROFILE.md).
+**Sync is not a backup.** Keep Local AppData copies and the dated repair backup under the product `backups\` folder when needed.
 
-### Storage, export, and sync
-
-FeOxDB is the local authoritative store. Calibration, verification, provenance, mutation, export, sync payload, merge, conflict, and snapshot paths share the current entry contract. App UUID is stable identity; archive remains separate from lifecycle.
-
-Excel export writes active and archive worksheets and includes calibration, derived health for the export date, verification, and provenance fields.
-
-Shared synchronization is **enabled by default** from v0.1.1 (D-027), matching the ME / TE Parts family pattern:
-
-- Default product share: `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` (ME/TE layout: installer at root, `release-support\vX.Y.Z\`, `shared\inventory\`)
-- `TE_TEST_EQUIPMENT_SHARED_ROOT` — optional root override
-- `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED` — set to `0` / `false` / `no` / `off` to opt out for a process
-- `TE_TEST_EQUIPMENT_SYNC_HMAC_KEY` — optional shared-file authentication secret, at least 16 bytes
-
-If the shared root is missing or unreachable, the app remains fully usable locally and queues changes until the root is available. Upgrading the installer keeps Local AppData (same Tauri id). First successful shared sync bootstraps existing local entries onto the share once. Sync is not a backup: retain Local AppData copies and protected source exports.
+Do **not** point this app at TE Lab Components’ `...\InventoryApps\TE\shared`.
 
 ## Workspace
 
 ```text
-frontend/     React UI, bridge, and frontend tests
-backend/      Tauri/Rust commands, domain, FeOxDB, importer, export, and sync
-docs/         Decisions, handoff, planning, and engineering references
-data/import/  Gitignored live-profile inputs; never commit lab exports
-scripts/      Smoke and maintenance helpers
+frontend/     React UI, bridge, tests
+backend/      Tauri/Rust, domain, FeOxDB, importer, export, sync
+docs/         Decisions, handoff, planning (see docs/README.md)
+data/import/  Gitignored lab workbooks — never commit
+scripts/      Smoke helpers
 ```
 
-Active app workspace:
-
-```text
-C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
-```
-
-`C:\Projects\Active\TE_Lab_Equipment_Inventory` is an old planning/other-PC tree, not the application workspace. Engineering runbooks under `docs/engineering/` retain historical scaffold lineage and must be checked against current source and decisions before use.
-
-## Development and verification
-
-Install dependencies and run the web UI:
+## Development
 
 ```powershell
 bun install --frozen-lockfile
-bun run dev
-```
-
-Run frontend gates:
-
-```powershell
 bun run lint
 bun run test
 bun run build
-```
-
-Run backend gates from the repository root:
-
-```powershell
 cargo fmt --manifest-path backend/Cargo.toml --all -- --check
-cargo check --manifest-path backend/Cargo.toml --all-targets
-cargo clippy --manifest-path backend/Cargo.toml --all-targets --all-features -- -D warnings
 cargo test --manifest-path backend/Cargo.toml --no-fail-fast
-```
-
-Run the isolated one-machine sync smoke:
-
-```powershell
 powershell -ExecutionPolicy Bypass -File scripts\smoke-sync-one-machine.ps1
-```
-
-Run or build the desktop application when the host toolchain permits:
-
-```powershell
-bun run desktop
 bun run build:desktop
 ```
 
-## Remaining release and cutover gates
+On this workstation, ESLint/Vitest often need official portable Node ahead of Bun on `PATH` (Trend Micro / Bun EPERM issues).
 
-- correction of 50 identity-conflicted and eight invalid-date live rows, followed by a protected full-batch dry run/import
-- backup retention and restore drill for Local AppData (sync is not a backup)
-- real two-machine sync proof and durable department ACL ownership as ops follow-up
-- migration sign-off and Python read-only rollback window before retiring the Python workflow
+## Remaining ops / cutover
 
-Installer releases may ship with shared sync on (D-027). Do not delete Local AppData on upgrade; keep Tauri id `com.te.test.equipment.inventory` stable.
+- Second lab PC: install 0.1.5, confirm shared pull of the 543-entry inventory
+- Local AppData backup/restore drill
+- Department ACL ownership if required by IT
+- Optional: finish correcting the original 573-row Excel profile if a full re-import is still wanted
+- Python read-only window until deliberately retired
 
 ## Documentation map
 
-- [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md) — current cross-session state
-- [docs/SESSION_START_PROMPT.md](docs/SESSION_START_PROMPT.md) — paste block for a new session
-- [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md) — authoritative decisions
-- [docs/planning/IMPORT_PROFILE.md](docs/planning/IMPORT_PROFILE.md) — live aggregate profile, exact mapping, and blocking dry-run boundary
-- [AGENTS.md](AGENTS.md) — workspace rules
+- [docs/README.md](docs/README.md) — index + trust rules  
+- [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md) — current verified state  
+- [docs/SESSION_START_PROMPT.md](docs/SESSION_START_PROMPT.md) — new chat paste  
+- [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md) — decisions  
+- [docs/planning/IMPORT_PROFILE.md](docs/planning/IMPORT_PROFILE.md) — Excel import profile  
+- [AGENTS.md](AGENTS.md) — agent rules  

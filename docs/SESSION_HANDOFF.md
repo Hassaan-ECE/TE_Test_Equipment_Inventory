@@ -1,67 +1,85 @@
 # Session handoff — TE Test Equipment Inventory
 
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-15  
+**Evidence basis:** code + live Local AppData audit + production shared-root pull + GitHub/share listing (same day)
 
-**State:** v0.1.5 with shared sync on by default (D-027) and ME-style in-app updater (D-028). Idle "Shared operation sync ready" footer text is suppressed. Product share keeps only v0.1.4+ installers. Full lab Excel cutover still blocked on source corrections.
+**State:** **v0.1.5** ready for team install. Shared inventory holds **543** durable equipment records (ops-based). Full original Excel cutover profile (573-row dry-run with 50 conflicts / 8 rejects) is a separate source-correction track.
 
-## Workspace and authority
-
-Open only:
+## Workspace
 
 ```text
 C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
 ```
 
-`C:\Projects\Active\TE_Lab_Equipment_Inventory` is an old planning/other-PC tree, not the app. Planning authority is [planning/DECISIONS.md](planning/DECISIONS.md).
+Planning authority: [planning/DECISIONS.md](planning/DECISIONS.md).  
+Remote: `origin` → `https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory.git` (`main`).
 
-The repository is on `main` and tracks `origin/main`; `origin` is `https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory.git`.
+Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree.
 
 ## Stable identity
 
 | Item | Value |
 |------|-------|
 | Display | TE Test Equipment Inventory |
-| Package | `te-test-equipment-inventory` version `0.1.5` |
+| Package / installer | `0.1.5` |
 | Tauri id | `com.te.test.equipment.inventory` |
-| Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
-| Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` |
+| Local DB | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
+| Product share (default sync root) | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` |
 
-## Share layout (ME/TE family)
+## Team download
+
+| What | Where |
+|------|--------|
+| Current installer | `S:\...\TE_Test_Equipment_Inventory\TE Test Equipment Inventory_0.1.5_x64-setup.exe` |
+| Prior (updater base) | `release-support\v0.1.4\` |
+| Current archive | `release-support\v0.1.5\` (+ SHA256SUMS, `.sig`, `latest.json`) |
+| GitHub Latest | `v0.1.5` on `Hassaan-ECE/TE_Test_Equipment_Inventory` |
+
+Installers **0.1.3 and below** were removed from the share and GitHub so they are not installed by mistake.
+
+**Requirements for shared mode:** S: path reachable; same default root (or matching `TE_TEST_EQUIPMENT_SHARED_ROOT`). Sync is **on by default** (D-027); opt out with `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED=0|false|no|off`.
+
+Updater endpoint (D-028):  
+`https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory/releases/latest/download/latest.json`  
+Signing key stays outside the repo: `%USERPROFILE%\.tauri\te-test-equipment-inventory-updater.key`
+
+## Inventory data (verified 2026-07-15)
+
+| Check | Result |
+|-------|--------|
+| Local AppData entry count | **543** (all active; 0 archived) |
+| Shared `*.op.json` count | **543** |
+| Duplicate asset / serial keys | **0 / 0** |
+| Fresh empty DB pull from product shared root | **543** entries; **no new ops written**; manifest unchanged |
+| Synthetic one-machine sync smoke | **PASS** |
+| Two-DB create/update/delete flow | **PASS** |
+
+Composition noted in repair notes (not re-derived here): ~514 recovered current + ~29 unique legacy additions. Legacy workbook under `data/import/` is **gitignored**.
+
+Repair backup (ops/snapshots/local snapshots before repair):
 
 ```text
-S:\...\InventoryApps\TE_Test_Equipment_Inventory\
-  TE Test Equipment Inventory_0.1.5_x64-setup.exe   # current latest
-  release-support\
-    v0.1.4\ … v0.1.5\   installer + SHA256SUMS (+ .sig/latest.json)
-  shared\inventory\{ops,snapshots,locks,backups,manifest.json}
-  backups\   # optional Local AppData copies (not sync)
+S:\...\TE_Test_Equipment_Inventory\backups\shared-data-repair-20260715-094133
 ```
 
-Installers **0.1.3 and below** are removed from the share and GitHub so they are not installed by mistake.
+Manifest may still reference an **empty** snapshot (`entryCount: 0`) from an earlier client; data is carried by the 543 ops until compaction (threshold **1000** ops or snapshot age **≥24h**).
 
-Default shared root is the product folder itself (same as ME → `...\ME`, TE Components → `...\TE`). Layout under it is `shared\inventory\...`.
+Idle footer text “Shared operation sync ready.” is suppressed in UI (Shared pill covers mode). Actionable messages (pending, unavailable, errors) still show.
 
-Updater endpoint: `https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory/releases/latest/download/latest.json`  
-Private signing key (not in repo): `%USERPROFILE%\.tauri\te-test-equipment-inventory-updater.key`
+## Product behavior (code)
 
-Do **not** use `...\InventoryApps\TE\shared` (TE Lab Components).
-
-## Implemented highlights
-
-- D-026: offline full-batch import only; shell has no Import action
-- D-027: shared sync on by default; opt out with `TE_TEST_EQUIPMENT_SHARED_SYNC_ENABLED=0|false|no|off`
-- D-028: in-app Update button when GitHub latest is newer (ME-style)
-- First successful sync bootstraps existing Local AppData entries onto the share once
-- Sync is not a backup
-
-## How to update
-
-Install/run the current root setup, or from **0.1.4** open the app online and use **Update 0.1.5** when shown. Older than 0.1.4 is not kept on the share.
+- Calibration current-state fields; derived health; no `CalibrationEvent` ledger (D-017).
+- Import: offline / full-batch only; shell has **no** Import chrome (D-026).
+- Shared sync default on; Local AppData is authoritative store; **sync is not a backup** (D-013).
 
 ## Remaining gates
 
-1. Confirm Update path 0.1.3 → 0.1.4 on a real PC  
-2. Confirm Shared status and ops under `TE_Test_Equipment_Inventory\shared\inventory\ops`  
-3. Second-machine pull smoke  
-4. Correct 50 conflicted + 8 rejected live Excel rows before full cutover  
-5. Backup/restore drill; keep Python read-only until authorized retirement  
+1. Team install on second real lab PC + confirm 543 pull (first empty install).
+2. Backup/restore drill for Local AppData (and awareness of shared repair backup).
+3. Optional: department ACL ownership / formal two-machine sign-off.
+4. Optional: correct remaining **source Excel** conflicts (old 573-row profile: 50 conflicts + 8 rejects) if a full re-import cutover is still desired.
+5. Snapshot compaction when age/ops thresholds hit (automatic).
+
+## Verify before trusting any doc
+
+Re-check package version, `DEFAULT_SHARED_ROOT`, live share listing, and `gh release list` — do not copy version numbers from older markdown.
