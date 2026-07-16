@@ -17,11 +17,11 @@ Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree.
 3. `README.md`
 4. `AGENTS.md`
 
-**Current product (as of 2026-07-15 handoff):** package **0.1.5**. Shared sync **on by default** (D-027). In-app updater enabled (D-028). Default shared root:
+**Current product (as of 2026-07-16 handoff):** package **0.1.6**. Shared sync **on by default** (D-027). In-app updater enabled (D-028). Default shared root:
 
 `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory`
 
-Team installer: that folder’s root `TE Test Equipment Inventory_0.1.5_x64-setup.exe`. Only **v0.1.4+** kept under `release-support\`.
+Team installer: that folder’s root `TE Test Equipment Inventory_0.1.6_x64-setup.exe`. Only **v0.1.4+** kept under `release-support\`.
 
 **Data:** Local + shared inventory verified at **543** entries (no duplicate asset/serial). Sync smoke and empty-client pull against the product shared root passed. Sync is **not** a backup.
 

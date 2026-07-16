@@ -14,7 +14,7 @@ interface InventoryTableHeaderProps {
   columns: readonly ColumnConfig[];
   headerRef?: Ref<HTMLTableSectionElement | null>;
   onSortChange: (columnKey: ColumnConfig["key"]) => void;
-  sortState: SortState;
+  sortState: SortState | null;
 }
 
 export function InventoryTableColumnGroup({ columns }: InventoryTableColumnGroupProps) {
@@ -32,11 +32,13 @@ export function InventoryTableHeader({ columns, headerRef, onSortChange, sortSta
     <thead ref={headerRef} className="sticky top-0 z-20 bg-card">
       <tr>
         {columns.map((column) => {
-          const isActiveSort = sortState.column === column.key;
+          const isActiveSort = sortState?.column === column.key;
           const sortLabel = !column.sortable
             ? undefined
             : isActiveSort
-              ? `Sort by ${column.label}, currently ${sortState.direction === "asc" ? "ascending" : "descending"}`
+              ? sortState.direction === "asc"
+                ? `Sort by ${column.label}, currently ascending. Activate for descending`
+                : `Sort by ${column.label}, currently descending. Activate to clear sort`
               : `Sort by ${column.label}`;
 
           return (
@@ -51,6 +53,7 @@ export function InventoryTableHeader({ columns, headerRef, onSortChange, sortSta
               {column.sortable ? (
                 <button
                   aria-label={sortLabel}
+                  aria-pressed={isActiveSort ? true : false}
                   className={cn(
                     "inline-flex min-w-0 max-w-full items-center gap-1 transition-colors hover:text-foreground",
                     column.align === "center" ? "justify-center" : "",

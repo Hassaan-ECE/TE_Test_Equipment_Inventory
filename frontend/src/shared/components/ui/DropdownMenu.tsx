@@ -144,7 +144,8 @@ export function DropdownSelect({
         <DropdownPanel
           align={align}
           className="w-full min-w-full"
-          maxHeightClassName="max-h-[min(16rem,calc(100vh-8rem))]"
+          // Tall enough for the longest filter select (8 health options) without a scroll cue.
+          maxHeightClassName="max-h-[min(24rem,calc(100vh-6rem))]"
           role="listbox"
         >
           <div id={listboxId}>

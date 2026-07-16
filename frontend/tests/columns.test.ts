@@ -21,6 +21,6 @@ describe("column visibility persistence", () => {
     const visibility = readColumnVisibility();
 
     expect(getVisibleDataColumnCount(visibility)).toBe(1);
-    expect(visibility.qty).toBe(true);
+    expect(visibility.serialNumber).toBe(true);
   });
 });

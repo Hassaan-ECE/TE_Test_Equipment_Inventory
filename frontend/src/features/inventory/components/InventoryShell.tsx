@@ -18,7 +18,7 @@ import { useInventoryExternalActions } from "@/features/inventory/components/she
 import { useInventoryPreferences } from "@/features/inventory/components/shell/useInventoryPreferences";
 import { useInventoryViewModel } from "@/features/inventory/components/shell/useInventoryViewModel";
 import { useStatusAnnouncer } from "@/features/inventory/components/shell/useStatusAnnouncer";
-import { DEFAULT_FILTERS, getVisibleDataColumnCount } from "@/features/inventory/lib";
+import { cycleSortState, DEFAULT_FILTERS, getVisibleDataColumnCount } from "@/features/inventory/lib";
 import { INVENTORY_COLUMNS } from "@/features/inventory/types";
 import type { ColumnKey, FilterState, InventoryScope, SortState } from "@/features/inventory/types";
 
@@ -52,7 +52,7 @@ export function InventoryShell() {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortState, setSortState] = useState<SortState>({ column: "manufacturer", direction: "asc" });
+  const [sortState, setSortState] = useState<SortState | null>({ column: "manufacturer", direction: "asc" });
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const {
     counts,
@@ -119,10 +119,7 @@ export function InventoryShell() {
   }
 
   function handleSortChange(column: ColumnKey): void {
-    setSortState((current) => ({
-      column,
-      direction: current.column === column && current.direction === "asc" ? "desc" : "asc",
-    }));
+    setSortState((current) => cycleSortState(current, column));
   }
 
   function handleOpenContextMenu(entryId: string, clientX: number, clientY: number): void {

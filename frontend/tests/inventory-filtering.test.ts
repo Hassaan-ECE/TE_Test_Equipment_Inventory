@@ -7,6 +7,7 @@ import {
   filterEntries,
   formatLinkLabel,
   getInventoryCounts,
+  cycleSortState,
   sortEntries,
 } from "@/features/inventory/lib";
 import type { InventoryEntry } from "@/features/inventory/types";
@@ -75,6 +76,24 @@ describe("inventory helpers", () => {
     expect(descendingQuantity.at(-1)?.id).toBe("te-1007");
     expect(ascendingAssetNumber.at(-1)?.id).toBe("te-1004");
     expect(descendingAssetNumber.at(-1)?.id).toBe("te-1004");
+  });
+
+  it("cycles column sort through ascending, descending, then off", () => {
+    expect(cycleSortState(null, "model")).toEqual({ column: "model", direction: "asc" });
+    expect(cycleSortState({ column: "model", direction: "asc" }, "model")).toEqual({
+      column: "model",
+      direction: "desc",
+    });
+    expect(cycleSortState({ column: "model", direction: "desc" }, "model")).toBeNull();
+    expect(cycleSortState({ column: "model", direction: "desc" }, "location")).toEqual({
+      column: "location",
+      direction: "asc",
+    });
+  });
+
+  it("leaves filtered order unchanged when sort is cleared", () => {
+    const results = filterEntries(MOCK_INVENTORY, "inventory", "", DEFAULT_FILTERS);
+    expect(sortEntries(results, null).map((entry) => entry.id)).toEqual(results.map((entry) => entry.id));
   });
 
   it("formats long links into compact table labels", () => {

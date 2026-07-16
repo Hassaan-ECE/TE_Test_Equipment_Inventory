@@ -37,15 +37,17 @@ export function SearchCard({
   query,
   scope,
 }: SearchCardProps) {
-  // Only elevate above the table while settings is open — otherwise stay under the app header
-  // so Export / other header menus are not covered by this card.
+  // Elevate above the table while the settings menu or column filters are open so
+  // absolute dropdown panels (and filter selects) are not painted under the grid.
+  // Stay at z-0 when both are closed so Export / other header menus stay on top.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const elevateAboveTable = settingsOpen || filtersOpen;
 
   return (
     <section
       className={cn(
         "relative shrink-0 rounded-xl border border-border/70 bg-card/80 p-2 shadow-sm sm:p-2.5",
-        settingsOpen ? "z-50" : "z-0",
+        elevateAboveTable ? "z-50" : "z-0",
       )}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

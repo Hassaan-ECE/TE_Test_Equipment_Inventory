@@ -152,6 +152,8 @@ function renderCell(
       );
     case "assetNumber":
       return renderText(entry.assetNumber);
+    case "serialNumber":
+      return renderText(entry.serialNumber ?? "");
     case "qty":
       return renderText(entry.qty == null ? "" : String(entry.qty));
     case "manufacturer":
@@ -203,13 +205,14 @@ function renderCell(
   }
 }
 
-function renderText(value: string) {
-  if (!value.trim()) {
+function renderText(value: string | null | undefined) {
+  const text = value ?? "";
+  if (!text.trim()) {
     return <span className="text-muted-foreground">-</span>;
   }
   return (
-    <span className="block min-w-0 truncate" title={value}>
-      {value}
+    <span className="block min-w-0 truncate" title={text}>
+      {text}
     </span>
   );
 }

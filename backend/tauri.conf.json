@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TE Test Equipment Inventory",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "identifier": "com.te.test.equipment.inventory",
   "build": {
     "beforeDevCommand": "bun run dev:frontend",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "TE Test Equipment Inventory v0.1.5",
+        "title": "TE Test Equipment Inventory v0.1.6",
         "width": 1440,
         "height": 920,
         "minWidth": 1100,

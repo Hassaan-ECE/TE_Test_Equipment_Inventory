@@ -14,12 +14,23 @@ const HEALTH_ORDER = {
   not_applicable: 6,
 } as const;
 
+/** Cycle column sort: inactive → asc → desc → inactive. */
+export function cycleSortState(current: SortState | null, column: ColumnKey): SortState | null {
+  if (!current || current.column !== column) {
+    return { column, direction: "asc" };
+  }
+  if (current.direction === "asc") {
+    return { column, direction: "desc" };
+  }
+  return null;
+}
+
 export function sortEntries(
   entries: InventoryEntry[],
-  sortState: SortState,
+  sortState: SortState | null,
   localDate = getLocalDateString(),
 ): InventoryEntry[] {
-  if (entries.length <= 1) {
+  if (!sortState || entries.length <= 1) {
     return entries;
   }
 
@@ -61,6 +72,8 @@ function getSortValue(entry: InventoryEntry, column: ColumnKey, localDate: strin
       return entry.qty ?? undefined;
     case "assetNumber":
       return entry.assetNumber.trim().toLowerCase();
+    case "serialNumber":
+      return entry.serialNumber.trim().toLowerCase();
     case "manufacturer":
       return entry.manufacturer.trim().toLowerCase();
     case "model":

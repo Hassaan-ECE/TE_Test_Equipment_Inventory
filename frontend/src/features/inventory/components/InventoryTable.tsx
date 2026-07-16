@@ -18,7 +18,7 @@ interface InventoryTableProps {
   onSortChange: (columnKey: ColumnConfig["key"]) => void;
   onToggleVerified: (entryId: string) => void;
   entries: InventoryEntry[];
-  sortState: SortState;
+  sortState: SortState | null;
   localDate?: string;
 }
 

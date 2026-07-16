@@ -231,6 +231,7 @@ describe("InventoryShell table controls", () => {
     await user.click(screen.getByRole("checkbox", { name: "Description" }));
     await user.click(screen.getByRole("checkbox", { name: "Model" }));
     await user.click(screen.getByRole("checkbox", { name: "Manufacturer" }));
+    await user.click(screen.getByRole("checkbox", { name: "Serial #" }));
     await user.click(screen.getByRole("checkbox", { name: "Calibration" }));
     await user.click(screen.getByRole("checkbox", { name: "Out to cal" }));
     await user.click(screen.getByRole("checkbox", { name: "Calibration due" }));

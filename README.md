@@ -2,7 +2,7 @@
 
 Windows desktop inventory app (Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB).
 
-**Current package version: `0.1.5`** (verify in `package.json` / `backend/Cargo.toml` / `backend/tauri.conf.json` before treating this line as truth).
+**Current package version: `0.1.6`** (verify in `package.json` / `backend/Cargo.toml` / `backend/tauri.conf.json` before treating this line as truth).
 
 Product policy: [docs/planning/DECISIONS.md](docs/planning/DECISIONS.md). Session state: [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md). Docs map and trust rules: [docs/README.md](docs/README.md).
 
@@ -12,12 +12,12 @@ Scaffold lineage (not runtime identity): ME Inventory `e092c73`; TE Parts `e4443
 
 | Item | Location |
 |------|----------|
-| Installer | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory\TE Test Equipment Inventory_0.1.5_x64-setup.exe` |
+| Installer | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory\TE Test Equipment Inventory_0.1.6_x64-setup.exe` |
 | Shared data root (default) | same folder (`shared\inventory\` under it) |
-| GitHub Latest | [v0.1.5](https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory/releases/latest) |
+| GitHub Latest | [v0.1.6](https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory/releases/latest) |
 
 1. Ensure the Engineering **S:** share is available.
-2. Run the **0.1.5** setup (current-user NSIS).
+2. Run the **0.1.6** setup (current-user NSIS), or use in-app **Update** from 0.1.4+.
 3. Open the app — it should sync from the product share and show the shared inventory (seed machine was verified at **543** entries on 2026-07-15).
 4. Do **not** install removed builds **0.1.3 and below**.
 
@@ -28,7 +28,7 @@ Upgrades keep Local AppData when the Tauri id stays `com.te.test.equipment.inven
 | Item | Source truth |
 |------|--------------|
 | Display name | `TE Test Equipment Inventory` |
-| Package | `te-test-equipment-inventory` version `0.1.5` |
+| Package | `te-test-equipment-inventory` version `0.1.6` |
 | Tauri identifier | `com.te.test.equipment.inventory` — keep stable after installation |
 | Local database | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 | Excel export default | `TE_Test_Equipment_Inventory_Export.xlsx` |
@@ -94,7 +94,7 @@ On this workstation, ESLint/Vitest often need official portable Node ahead of Bu
 
 ## Remaining ops / cutover
 
-- Second lab PC: install 0.1.5, confirm shared pull of the 543-entry inventory
+- Second lab PC: install 0.1.6, confirm shared pull of the 543-entry inventory
 - Local AppData backup/restore drill
 - Department ACL ownership if required by IT
 - Optional: finish correcting the original 573-row Excel profile if a full re-import is still wanted

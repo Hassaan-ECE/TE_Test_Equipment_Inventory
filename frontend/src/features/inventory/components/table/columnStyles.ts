@@ -10,6 +10,8 @@ export function getColumnStyle(columnKey: ColumnConfig["key"]): CSSProperties {
       return { width: "3.75rem" };
     case "assetNumber":
       return { width: "7rem" };
+    case "serialNumber":
+      return { width: "8rem" };
     case "projectName":
       return { width: "8.5rem" };
     default:

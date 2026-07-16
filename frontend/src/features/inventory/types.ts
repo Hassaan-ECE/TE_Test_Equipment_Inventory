@@ -273,6 +273,7 @@ export interface ColumnConfig {
   key:
     | "verified"
     | "assetNumber"
+    | "serialNumber"
     | "qty"
     | "manufacturer"
     | "model"
@@ -300,6 +301,7 @@ export interface SortState {
 export const INVENTORY_COLUMNS = [
   { key: "verified", label: "Verified", defaultVisible: true, sortable: true, align: "center" },
   { key: "assetNumber", label: "Asset #", defaultVisible: false, sortable: true },
+  { key: "serialNumber", label: "Serial #", defaultVisible: true, sortable: true },
   { key: "qty", label: "Qty", defaultVisible: true, sortable: true, align: "center" },
   { key: "manufacturer", label: "Manufacturer", defaultVisible: true, sortable: true },
   { key: "model", label: "Model", defaultVisible: true, sortable: true },

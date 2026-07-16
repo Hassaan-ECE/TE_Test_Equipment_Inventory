@@ -1,9 +1,9 @@
 # Session handoff — TE Test Equipment Inventory
 
-**Last updated:** 2026-07-15  
-**Evidence basis:** code + live Local AppData audit + production shared-root pull + GitHub/share listing (same day)
+**Last updated:** 2026-07-16  
+**Evidence basis:** code + release build for v0.1.6 UI fixes (serial column, filter stacking, sort cycle, filter dropdown height)
 
-**State:** **v0.1.5** ready for team install. Shared inventory holds **543** durable equipment records (ops-based). Full original Excel cutover profile (573-row dry-run with 50 conflicts / 8 rejects) is a separate source-correction track.
+**State:** **v0.1.6** ready for team install/update. Shared inventory remains the product ops set on the S: share (previously verified **543** durable equipment records). Full original Excel cutover profile (573-row dry-run with 50 conflicts / 8 rejects) is a separate source-correction track.
 
 ## Workspace
 
@@ -21,7 +21,7 @@ Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree.
 | Item | Value |
 |------|-------|
 | Display | TE Test Equipment Inventory |
-| Package / installer | `0.1.5` |
+| Package / installer | `0.1.6` |
 | Tauri id | `com.te.test.equipment.inventory` |
 | Local DB | `%LOCALAPPDATA%\com.te.test.equipment.inventory\inventory.feox` |
 | Product share (default sync root) | `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory` |
@@ -30,10 +30,10 @@ Do not use `C:\Projects\Active\TE_Lab_Equipment_Inventory` as the app tree.
 
 | What | Where |
 |------|--------|
-| Current installer | `S:\...\TE_Test_Equipment_Inventory\TE Test Equipment Inventory_0.1.5_x64-setup.exe` |
-| Prior (updater base) | `release-support\v0.1.4\` |
-| Current archive | `release-support\v0.1.5\` (+ SHA256SUMS, `.sig`, `latest.json`) |
-| GitHub Latest | `v0.1.5` on `Hassaan-ECE/TE_Test_Equipment_Inventory` |
+| Current installer | `S:\...\TE_Test_Equipment_Inventory\TE Test Equipment Inventory_0.1.6_x64-setup.exe` |
+| Prior (updater base) | `release-support\v0.1.5\` |
+| Current archive | `release-support\v0.1.6\` (+ SHA256SUMS, `.sig`, `latest.json`) |
+| GitHub Latest | `v0.1.6` on `Hassaan-ECE/TE_Test_Equipment_Inventory` |
 
 Installers **0.1.3 and below** were removed from the share and GitHub so they are not installed by mistake.
 
@@ -43,7 +43,7 @@ Updater endpoint (D-028):
 `https://github.com/Hassaan-ECE/TE_Test_Equipment_Inventory/releases/latest/download/latest.json`  
 Signing key stays outside the repo: `%USERPROFILE%\.tauri\te-test-equipment-inventory-updater.key`
 
-## Inventory data (verified 2026-07-15)
+## Inventory data (last full audit 2026-07-15)
 
 | Check | Result |
 |-------|--------|
@@ -66,6 +66,13 @@ Manifest may still reference an **empty** snapshot (`entryCount: 0`) from an ear
 
 Idle footer text “Shared operation sync ready.” is suppressed in UI (Shared pill covers mode). Actionable messages (pending, unavailable, errors) still show.
 
+## v0.1.6 product UI fixes
+
+- Filter dropdowns elevate above the inventory table (no longer paint under the grid).
+- **Serial #** column added (default visible, sortable, toggleable in View settings).
+- Column sort cycles **asc → desc → off → asc**.
+- Filter select menus tall enough for full health list without forced scroll.
+
 ## Product behavior (code)
 
 - Calibration current-state fields; derived health; no `CalibrationEvent` ledger (D-017).
@@ -74,7 +81,7 @@ Idle footer text “Shared operation sync ready.” is suppressed in UI (Shared 
 
 ## Remaining gates
 
-1. Team install on second real lab PC + confirm 543 pull (first empty install).
+1. Team install on second real lab PC + confirm inventory pull (first empty install).
 2. Backup/restore drill for Local AppData (and awareness of shared repair backup).
 3. Optional: department ACL ownership / formal two-machine sign-off.
 4. Optional: correct remaining **source Excel** conflicts (old 573-row profile: 50 conflicts + 8 rejects) if a full re-import cutover is still desired.
